@@ -54,6 +54,16 @@ export const HINTS = {
     en: "The user cannot create tables, so the schema step would fail halfway through.",
     fix: "GRANT ALL ON <db>.* TO <user>@%;",
   },
+  DB_TLS_UNTRUSTED: {
+    ar: "خادم قاعدة البيانات يستخدم تشفيراً بشهادة غير موثوقة (شهادة ذاتية التوقيع) — وهذا شائع جداً على Coolify والخوادم الخاصة. اختر وضع التشفير من القائمة: إمّا «بدون تحقّق» وهو يشفّر الاتصال لكنه لا يمنع انتحال الخادم، أو «تحقّق بشهادة CA» والصق شهادة الخادم.",
+    en: "The database server uses TLS with a certificate nothing trusts (self-signed) — very common on Coolify and self-hosted servers. Pick an encryption mode: either 'no verification', which encrypts the traffic but does not stop an impostor, or 'verify with a CA certificate' and paste the server's CA.",
+    action: "choose_ssl_mode",
+  },
+  DB_TLS_REQUIRED: {
+    ar: "خادم قاعدة البيانات يرفض الاتصال بدون تشفير. اختر وضع تشفير من القائمة.",
+    en: "The database server refuses unencrypted connections. Pick an encryption mode.",
+    action: "choose_ssl_mode",
+  },
   DB_WRONG_CHARSET: {
     ar: "ترميز الخادم ليس utf8mb4 — النصوص العربية قد تُخزَّن بشكل خاطئ. تحذير وليس مانعاً.",
     en: "The server charset is not utf8mb4 — Arabic text may be stored incorrectly. A warning, not a blocker.",

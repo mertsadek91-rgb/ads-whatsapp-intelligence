@@ -37,7 +37,7 @@ export default function SetupApp() {
   const [genBusy, setGenBusy] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
   const [form, setForm] = useState({
-    db: { host: "127.0.0.1", port: 3306, user: "", password: "", database: "" },
+    db: { host: "127.0.0.1", port: 3306, user: "", password: "", database: "", ssl: { mode: "off", ca: "" } },
     meta: { appId: "", appSecret: "", token: "", accountId: "", apiVersion: "v21.0" },
     wati: { endpoint: "", token: "" },
     ai: { apiKey: "", baseUrl: "https://api.deepseek.com", model: "", dailyBudgetUsd: 10 },
@@ -270,6 +270,33 @@ export default function SetupApp() {
             </div>
             <Field field="db.database" lang={lang} value={form.db.database}
               onChange={(v) => set("db", "database", v)} />
+
+            <div className="setup-field">
+              <label>{t("تشفير الاتصال (TLS)", "Connection encryption (TLS)")}</label>
+              <select value={form.db.ssl.mode}
+                onChange={(e) => { set("db", "ssl", { ...form.db.ssl, mode: e.target.value }); setTested((x) => ({ ...x, db: false })); }}>
+                <option value="off">{t("بدون تشفير — قاعدة محلية أو شبكة خاصة", "None — local or private network")}</option>
+                <option value="insecure">{t("تشفير بدون تحقّق من الشهادة", "Encrypted, certificate not verified")}</option>
+                <option value="verify">{t("تشفير مع التحقّق بشهادة CA", "Encrypted and verified with a CA certificate")}</option>
+              </select>
+              {form.db.ssl.mode === "insecure" && (
+                <p className="setup-locked">
+                  {t("الاتصال سيكون مشفّراً، لكن لن نتحقّق من هوية الخادم — أي أن انتحال الخادم يبقى ممكناً لمن يستطيع اعتراض الشبكة. مقبول داخل شبكة خاصة، وليس عبر الإنترنت المفتوح.",
+                     "The connection will be encrypted, but the server's identity is not verified — an attacker who can intercept the network could still impersonate it. Acceptable inside a private network; not over the open internet.")}
+                </p>
+              )}
+              {form.db.ssl.mode === "verify" && (
+                <>
+                  <label>{t("شهادة CA للخادم (PEM)", "Server CA certificate (PEM)")}</label>
+                  <textarea rows={5} value={form.db.ssl.ca} placeholder="-----BEGIN CERTIFICATE-----"
+                    onChange={(e) => { set("db", "ssl", { ...form.db.ssl, ca: e.target.value }); setTested((x) => ({ ...x, db: false })); }} />
+                  <p className="setup-note">
+                    {t("على Coolify: افتح خدمة قاعدة البيانات ← Configuration، وانسخ شهادة الخادم من هناك.",
+                       "On Coolify: open the database service → Configuration and copy the server certificate from there.")}
+                  </p>
+                </>
+              )}
+            </div>
           </>
         )}
 
@@ -404,7 +431,15 @@ export default function SetupApp() {
           </>
         )}
 
-        <TestResult result={result} lang={lang} onAction={(a) => a === "create_database" && createDb()} />
+        <TestResult result={result} lang={lang} onAction={(a) => {
+          if (a === "create_database") createDb();
+          // The server recognised a TLS trust failure; move them to the setting
+          // that fixes it rather than leaving them to find the dropdown.
+          if (a === "choose_ssl_mode" && form.db.ssl.mode === "off") {
+            set("db", "ssl", { ...form.db.ssl, mode: "insecure" });
+            setTested((x) => ({ ...x, db: false }));
+          }
+        }} />
 
         {step === "finish" ? (
           <div className="setup-actions">

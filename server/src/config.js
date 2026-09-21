@@ -46,6 +46,11 @@ export function parseMysqlUrl(url) {
       user: decodeURIComponent(u.username),
       password: decodeURIComponent(u.password),
       database: (u.pathname || "/").replace(/^\//, "") || "",
+      // ?ssl=insecure or ?ssl=verify, for a database that requires TLS with a
+      // certificate nothing trusts — the norm on managed and self-hosted hosts.
+      // Without this the environment route could not connect at all to servers
+      // the wizard handles fine.
+      ssl: { mode: u.searchParams.get("ssl") || "off", ca: "" },
     };
   } catch {
     return null;

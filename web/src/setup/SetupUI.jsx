@@ -102,6 +102,11 @@ export function TestResult({ result, lang, onAction }) {
           {t("أنشئ قاعدة البيانات لي", "Create the database for me")}
         </button>
       )}
+      {result.action === "choose_ssl_mode" && (
+        <button type="button" className="btn" onClick={() => onAction?.("choose_ssl_mode")}>
+          {t("فعّل التشفير بدون تحقّق وأعِد المحاولة", "Turn on encryption without verification and retry")}
+        </button>
+      )}
     </div>
   );
 }

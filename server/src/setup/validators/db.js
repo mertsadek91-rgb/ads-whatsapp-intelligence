@@ -10,6 +10,7 @@
 // what lets the post-install Settings page reuse this untouched.
 import mysql from "mysql2/promise";
 import { fail, pass } from "../errorMap.js";
+import { sslOption, isTlsTrustError, normalizeSsl } from "../../lib/mysqlSsl.js";
 
 // The app uses INSERT ... AS new ON DUPLICATE KEY UPDATE (db.js), which MySQL
 // only understands from 8.0.19. Older servers accept ensureSchema() and then
@@ -29,6 +30,9 @@ export function versionAtLeast(versionString, min = MIN_MYSQL) {
 
 /** MySQL/driver error -> the code the wizard knows how to explain. */
 export function classify(err) {
+  // A TLS trust failure is not a connection problem and must not be reported
+  // as one: the fix is a setting, not a different host or password.
+  if (isTlsTrustError(err)) return "DB_TLS_UNTRUSTED";
   const code = err?.code || "";
   const errno = err?.errno;
   if (code === "ECONNREFUSED") return "DB_CONN_REFUSED";
@@ -39,17 +43,23 @@ export function classify(err) {
   if (code === "ER_BAD_DB_ERROR" || errno === 1049) return "DB_NO_DATABASE";
   if (code === "ER_DBACCESS_DENIED_ERROR" || errno === 1044) return "DB_NO_SCHEMA_ACCESS";
   if (code === "ER_NOT_SUPPORTED_AUTH_MODE" || errno === 1251) return "DB_AUTH_PLUGIN";
+  // The server insists on TLS and we offered none.
+  if (errno === 3159 || /secure transport/i.test(err?.message || "")) return "DB_TLS_REQUIRED";
   return "UNKNOWN";
 }
 
-const conn = (input, withDatabase = true) => mysql.createConnection({
-  host: input.host,
-  port: Number(input.port || 3306),
-  user: input.user,
-  password: input.password ?? "",
-  ...(withDatabase && input.database ? { database: input.database } : {}),
-  connectTimeout: 8000,
-});
+const conn = (input, withDatabase = true) => {
+  const ssl = sslOption(normalizeSsl(input.ssl));
+  return mysql.createConnection({
+    host: input.host,
+    port: Number(input.port || 3306),
+    user: input.user,
+    password: input.password ?? "",
+    ...(withDatabase && input.database ? { database: input.database } : {}),
+    ...(ssl ? { ssl } : {}),
+    connectTimeout: 8000,
+  });
+};
 
 /**
  * Connect, check the server version, confirm the app can actually create

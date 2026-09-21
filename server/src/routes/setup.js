@@ -71,14 +71,9 @@ router.post("/claim", (req, res) => {
       error: "setup_in_progress", claimedFrom: r.claim.ip, claimedAgoMs: Date.now() - r.claim.at });
   }
   res.cookie("setup_claim", r.claim.id, { httpOnly: true, sameSite: "lax" });
-  // Hand the caller the install token as an httpOnly cookie.
-  //
-  // Without this, claiming locked out the very operator who just claimed:
-  // requireSetupAccess admits a local request only while nothing is claimed, so
-  // the first successful claim made every following step answer 401 for a
-  // browser on the same machine. Issuing the token at the moment of claiming
-  // keeps the token the single authority, and means the operator never has to
-  // copy it out of the server log when installing locally.
+  // Hand the caller the install token as an httpOnly cookie, so a browser that
+  // claimed locally keeps working even if the request later looks remote —
+  // someone putting the installer behind a tunnel or a proxy mid-install.
   res.cookie("setup_claim_token", ensureInstallToken(), { httpOnly: true, sameSite: "lax" });
   res.json({ ok: true, claimId: r.claim.id });
 });
@@ -117,9 +112,11 @@ router.post("/db/create-database", async (req, res) => {
 });
 
 router.post("/db/save", testThenSave("db", dbValidator.validate, async (body) => {
+  const { normalizeSsl } = await import("../lib/mysqlSsl.js");
   const mysql = {
     host: body.host, port: Number(body.port || 3306),
     user: body.user, password: body.password ?? "", database: body.database,
+    ssl: normalizeSsl(body.ssl),
   };
   state.writeState({ mysql });
   config.mysql = mysql;

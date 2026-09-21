@@ -3,6 +3,7 @@
 // INSERT ... AS new ON DUPLICATE KEY UPDATE.
 import mysql from "mysql2/promise";
 import config from "./config.js";
+import { sslOption } from "./lib/mysqlSsl.js";
 
 let _pool = null;
 
@@ -42,6 +43,7 @@ export function pool() {
       user: my.user,
       password: my.password,
       database: my.database,
+      ...(sslOption(my.ssl) ? { ssl: sslOption(my.ssl) } : {}),
       charset: "utf8mb4",
       waitForConnections: true,
       connectionLimit: 8,
@@ -76,6 +78,7 @@ export async function runScript(sqlText) {
     user: my.user,
     password: my.password,
     database: my.database,
+    ...(sslOption(my.ssl) ? { ssl: sslOption(my.ssl) } : {}),
     charset: "utf8mb4",
     multipleStatements: true,
     timezone: "Z", // BUG-003 fix — see pool() above
