@@ -8,6 +8,7 @@
 // screen says so plainly rather than quietly producing a thinner profile.
 import { fetchSiteCorpus } from "../../lib/siteFetch.js";
 import { fail, pass } from "../errorMap.js";
+import { isTlsTrustError } from "../../lib/tlsTrust.js";
 
 // Enough to describe a business in a sentence or two. Below this the model has
 // nothing to generalise from and invents things, which is the worst outcome.
@@ -34,6 +35,10 @@ export async function validate(input) {
   try {
     corpus = await fetchSiteCorpus(url);
   } catch (e) {
+    // Reading the company website goes out through the same intercepting proxy
+    // as every other outbound call, and reporting that as "site unreachable"
+    // would send the operator to check a website that is perfectly fine.
+    if (isTlsTrustError(e)) return fail("TLS_INTERCEPTED", e.message);
     // The SSRF guard refusing an internal address IS a hard failure: it means
     // the operator pointed us somewhere we must not read.
     if (/SITE_PRIVATE_ADDRESS/.test(e.message)) return fail("SITE_PRIVATE_ADDRESS", url);

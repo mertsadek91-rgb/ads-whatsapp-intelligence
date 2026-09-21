@@ -38,10 +38,30 @@ let cache = null;
 
 export function readState({ reload = false } = {}) {
   if (cache && !reload) return cache;
+  let raw;
   try {
-    const raw = fs.readFileSync(statePath(), "utf8");
-    cache = { ...DEFAULTS, ...JSON.parse(raw) };
+    raw = fs.readFileSync(statePath(), "utf8");
   } catch {
+    cache = { ...DEFAULTS };          // no file yet: a genuinely fresh install
+    return cache;
+  }
+  try {
+    // Strip a UTF-8 BOM. Any Windows tool that touches this file — PowerShell's
+    // Set-Content among them — writes one, and JSON.parse rejects it outright.
+    cache = { ...DEFAULTS, ...JSON.parse(raw.replace(/^﻿/, "")) };
+  } catch (e) {
+    // A file we cannot read is NOT the same as no file. Silently falling back to
+    // defaults meant the next write replaced a working install's database
+    // credentials and completed steps with nothing — an install lost to a stray
+    // byte, with no message. Keep the original so it can be recovered, and say
+    // so loudly instead of pretending this is a first run.
+    const backup = `${statePath()}.corrupt-${Date.now()}`;
+    try { fs.copyFileSync(statePath(), backup); } catch { /* best effort */ }
+    console.error(
+      `[setup] ${statePath()} could not be parsed (${e.message}).\n` +
+      `        Your previous answers are NOT lost — the original is at:\n` +
+      `        ${backup}\n` +
+      "        Continuing as a fresh install.");
     cache = { ...DEFAULTS };
   }
   return cache;

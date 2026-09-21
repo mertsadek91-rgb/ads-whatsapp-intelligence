@@ -14,6 +14,7 @@ import * as setupState from "./lib/setupState.js";
 import * as appConfig from "./lib/appConfig.js";
 import * as businessProfile from "./lib/businessProfile.js";
 import { setKeyProvider } from "./lib/secretBox.js";
+import { supportsSystemCa, systemCaEnabled } from "./lib/tlsTrust.js";
 import { ensureInstallToken } from "./middleware/setupAccess.js";
 import { setActivator } from "./routes/setup.js";
 import { app, buildApiRouter, setRuntimeRouter } from "./app.js";
@@ -93,6 +94,27 @@ setActivator(async () => {
   await activateRuntime();
 });
 
+/**
+ * Say, once, that this process will not trust the operating system's
+ * certificates.
+ *
+ * On a machine running antivirus with HTTPS scanning, or behind a corporate
+ * gateway, every outbound call is re-signed with a root certificate that lives
+ * in the OS store. Browsers use that store; Node ships its own list and ignores
+ * it. The result is a URL that works in Chrome and fails here, which is a
+ * genuinely confusing thing to debug — so name it at boot rather than waiting
+ * for a validator to fail.
+ */
+function printTlsHint() {
+  if (!supportsSystemCa() || systemCaEnabled() || process.env.NODE_EXTRA_CA_CERTS) return;
+  console.log(
+    "[tls] Using Node's own certificate list, not the operating system's.\n" +
+    "      If a connection fails with \"self-signed certificate in certificate chain\"\n" +
+    "      while the same URL works in your browser, something is inspecting TLS\n" +
+    "      (antivirus HTTPS scanning, or a corporate proxy). Start with:\n" +
+    "        npm run start:trusted\n");
+}
+
 function printSetupBanner() {
   const token = ensureInstallToken();
   console.log(
@@ -107,6 +129,7 @@ function printSetupBanner() {
 async function boot() {
   // Listen first, unconditionally. A container that refuses to start because it
   // has no database is a container nobody can configure.
+  printTlsHint();
   app.listen(config.port, () => console.log(`Listening on http://0.0.0.0:${config.port}`));
 
   if (!setupState.isInstalled()) return printSetupBanner();

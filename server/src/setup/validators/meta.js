@@ -9,11 +9,13 @@
 // point of this step.
 import axios from "axios";
 import { fail, pass } from "../errorMap.js";
+import { isTlsTrustError } from "../../lib/tlsTrust.js";
 
 const graph = (v) => `https://graph.facebook.com/${v || "v21.0"}`;
 
 /** A Graph API error object -> the code the wizard knows how to explain. */
 export function classify(err) {
+  if (isTlsTrustError(err)) return "TLS_INTERCEPTED";
   const fb = err?.response?.data?.error;
   if (!fb) {
     const c = err?.code || "";

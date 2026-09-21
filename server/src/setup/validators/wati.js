@@ -7,6 +7,7 @@
 // automatically, with the correction shown rather than applied silently.
 import axios from "axios";
 import { fail, pass } from "../errorMap.js";
+import { isTlsTrustError } from "../../lib/tlsTrust.js";
 
 /** Tenant id out of the JWT payload, when the endpoint does not carry one. */
 export function tenantFromToken(token) {
@@ -47,6 +48,7 @@ export function normalizeEndpoint(rawEndpoint, token) {
 }
 
 function classify(err) {
+  if (isTlsTrustError(err)) return "TLS_INTERCEPTED";
   const status = err?.response?.status;
   const body = err?.response?.data;
   if (status === 401 || status === 403) return "WATI_UNAUTHORIZED";

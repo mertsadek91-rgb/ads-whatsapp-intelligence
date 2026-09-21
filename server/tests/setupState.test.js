@@ -59,6 +59,31 @@ describe("state file", () => {
     state._resetCache();
     expect(state.readState().installed).toBe(false);
   });
+
+  it("reads a file written with a UTF-8 BOM", () => {
+    // Every Windows tool that touches this file writes one — PowerShell's
+    // Set-Content among them — and JSON.parse rejects it outright. Without this
+    // a stray byte made a configured install look like a fresh one.
+    state.writeState({ completedSteps: ["db", "meta"], mysql: { host: "h", database: "d" } });
+    const json = fs.readFileSync(state.statePath(), "utf8");
+    fs.writeFileSync(state.statePath(), "﻿" + json, "utf8");
+    state._resetCache();
+    const s = state.readState();
+    expect(s.completedSteps).toEqual(["db", "meta"]);
+    expect(s.mysql.host).toBe("h");
+  });
+
+  it("keeps a copy of an unreadable file rather than quietly replacing it", () => {
+    // Falling back to defaults silently meant the NEXT write overwrote a working
+    // install's credentials and progress with nothing, and said nothing about it.
+    state.writeState({ completedSteps: ["db", "meta", "wati"] });
+    fs.writeFileSync(state.statePath(), "{ truncated");
+    state._resetCache();
+    expect(state.readState().completedSteps).toEqual([]);   // continues, does not crash
+    const kept = fs.readdirSync(dir).filter((f) => f.includes(".corrupt-"));
+    expect(kept.length, "the unreadable file must be preserved").toBe(1);
+    expect(fs.readFileSync(path.join(dir, kept[0]), "utf8")).toContain("truncated");
+  });
 });
 
 describe("ensureSessionSecret", () => {

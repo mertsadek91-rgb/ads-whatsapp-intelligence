@@ -9,8 +9,12 @@
 //     bad key. It gets its own message and a top-up link.
 import axios from "axios";
 import { fail, pass } from "../errorMap.js";
+import { isTlsTrustError } from "../../lib/tlsTrust.js";
 
 function classify(err) {
+  // Checked first: a re-signed certificate is not an auth or balance problem,
+  // and reporting it as one sends the operator to the wrong console entirely.
+  if (isTlsTrustError(err)) return "TLS_INTERCEPTED";
   const status = err?.response?.status;
   const msg = err?.response?.data?.error?.message || err?.message || "";
   if (status === 401) return "AI_UNAUTHORIZED";

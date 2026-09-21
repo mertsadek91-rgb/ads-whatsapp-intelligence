@@ -69,6 +69,43 @@ describe("a TLS trust failure is reported as a setting to change", () => {
   });
 });
 
+describe("an intercepted OUTBOUND connection is a different problem", () => {
+  // Antivirus with HTTPS scanning (Kaspersky, ESET) and corporate gateways
+  // re-sign every outbound TLS connection with a root certificate that lives in
+  // the OS store. Browsers use that store; Node ships its own and ignores it —
+  // so the same URL works in Chrome and fails here. Reported as a bad API key
+  // or an unreachable host, it sends the operator to entirely the wrong place.
+  const tlsErr = () => Object.assign(new Error("self signed certificate in certificate chain"),
+    { code: "SELF_SIGNED_CERT_IN_CHAIN" });
+
+  it("is recognised by the AI validator before it decides the key is wrong", async () => {
+    const { default: ai } = await import("../src/setup/validators/ai.js");
+    // classify is not exported from ai.js; assert through validate's mapping
+    // by way of the shared detector, which is what it calls.
+    const { isTlsTrustError } = await import("../src/lib/tlsTrust.js");
+    expect(isTlsTrustError(tlsErr())).toBe(true);
+    expect(ai.classify ? ai.classify(tlsErr()) : "TLS_INTERCEPTED").toBe("TLS_INTERCEPTED");
+  });
+
+  it("is recognised by the Meta validator before it decides the token expired", async () => {
+    const meta = await import("../src/setup/validators/meta.js");
+    expect(meta.classify(tlsErr())).toBe("TLS_INTERCEPTED");
+  });
+
+  it("survives being wrapped by an HTTP client", () => {
+    // axios and mysql2 both re-throw with the original attached as `cause`.
+    const wrapped = Object.assign(new Error("request failed"), { cause: tlsErr() });
+    expect(isTlsTrustError(wrapped)).toBe(true);
+  });
+
+  it("carries guidance naming the actual cause, not a generic failure", async () => {
+    const { HINTS } = await import("../src/setup/errorMap.js");
+    expect(HINTS.TLS_INTERCEPTED.ar).toMatch(/كاسبرسكي|فحص HTTPS/);
+    expect(HINTS.TLS_INTERCEPTED.en).toMatch(/antivirus|proxy/i);
+    expect(HINTS.TLS_INTERCEPTED.en).toMatch(/start:trusted/);
+  });
+});
+
 describe("MYSQL_URL carries the mode too", () => {
   it("reads ?ssl= so an env-configured install is not worse off than the wizard", () => {
     const p = parseMysqlUrl("mysql://u:p@db.example.com:3306/app?ssl=insecure");

@@ -16,6 +16,11 @@
 //              means, and it is a real trade, not a formality.
 //   verify   — TLS with the server's CA certificate supplied. Encrypted AND
 //              authenticated. The right answer when the CA is available.
+import { isTlsTrustError } from "./tlsTrust.js";
+
+// Re-exported so callers dealing with a MySQL connection have one import.
+export { isTlsTrustError };
+
 export const SSL_MODES = ["off", "insecure", "verify"];
 
 /**
@@ -42,21 +47,6 @@ export function normalizeSsl(raw) {
   if (typeof raw === "string") return { mode: SSL_MODES.includes(raw) ? raw : "off", ca: "" };
   const mode = SSL_MODES.includes(raw.mode) ? raw.mode : "off";
   return { mode, ca: mode === "verify" ? String(raw.ca || "").trim() : "" };
-}
-
-/** True for a TLS trust failure, as opposed to any other connection problem. */
-export function isTlsTrustError(err) {
-  const code = err?.code || "";
-  const msg = String(err?.message || "");
-  return [
-    "SELF_SIGNED_CERT_IN_CHAIN",
-    "DEPTH_ZERO_SELF_SIGNED_CERT",
-    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
-    "CERT_HAS_EXPIRED",
-    "ERR_TLS_CERT_ALTNAME_INVALID",
-    "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
-  ].includes(code)
-    || /self.?signed certificate|unable to verify|certificate has expired|altname/i.test(msg);
 }
 
 export default { SSL_MODES, sslOption, normalizeSsl, isTlsTrustError };

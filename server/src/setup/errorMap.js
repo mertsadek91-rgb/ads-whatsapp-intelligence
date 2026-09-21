@@ -69,6 +69,12 @@ export const HINTS = {
     en: "The server charset is not utf8mb4 — Arabic text may be stored incorrectly. A warning, not a blocker.",
   },
 
+  // ---- Outbound TLS (shared by Meta, Wati, AI and the website reader) ------
+  TLS_INTERCEPTED: {
+    ar: "شيء ما يعترض الاتصال المشفّر ويعيد توقيعه — عادةً مضاد فيروسات بخاصية فحص HTTPS (كاسبرسكي، ESET، Bitdefender) أو بوّابة شبكة في الشركة. شهادته مثبّتة في نظام ويندوز فيعمل المتصفّح، لكن Node يستخدم قائمة شهادات خاصة به ويتجاهل قائمة النظام. الحل: شغّل التطبيق بأمر `npm run start:trusted` ليستخدم شهادات النظام، أو استثنِ هذا الموقع من فحص HTTPS في برنامج الحماية.",
+    en: "Something is intercepting the encrypted connection and re-signing it — usually antivirus with HTTPS scanning (Kaspersky, ESET, Bitdefender) or a corporate network gateway. Its root certificate is in the Windows store, which is why the browser works, but Node ships its own certificate list and ignores the system one. Fix: run the app with `npm run start:trusted` so it uses the system certificates, or exclude this host from HTTPS scanning in your security software.",
+  },
+
   // ---- Meta ---------------------------------------------------------------
   META_TOKEN_EXPIRED: {
     ar: "انتهت صلاحية رمز الوصول أو تم إلغاؤه. أعِد الربط لإصدار رمز جديد.",

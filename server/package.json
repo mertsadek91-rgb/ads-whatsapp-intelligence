@@ -11,7 +11,8 @@
     "daily": "node src/jobs/runDaily.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "vitest run --config vitest.integration.config.js"
+    "test:integration": "vitest run --config vitest.integration.config.js",
+    "start:trusted": "node --use-system-ca src/server.js"
   },
   "dependencies": {
     "@fontsource/cairo": "^5.2.7",
