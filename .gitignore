@@ -1,0 +1,25 @@
+# ---- Secrets: never commit real credentials ----
+.env
+.env.*
+!.env.example
+server/data/          # setup.json holds DB credentials + the session/secret keys
+
+# ---- Dependencies / build output ----
+node_modules/
+dist/
+coverage/
+
+# ---- Logs & scratch ----
+*.log
+__*
+
+# ---- Generated reports / data dumps (never source) ----
+reports/
+*.csv
+!*.template.csv
+_*.json
+_*.tmp
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db

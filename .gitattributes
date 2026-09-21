@@ -1,0 +1,9 @@
+# Normalise line endings in the repo; check out native on Windows.
+* text=auto eol=lf
+
+# Never render a stray env file in a diff.
+*.env      -diff
+.env*      -diff
+
+# Lockfiles are generated — collapse them in reviews.
+package-lock.json linguist-generated=true -diff

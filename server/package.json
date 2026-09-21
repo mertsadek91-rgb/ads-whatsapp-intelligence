@@ -1,0 +1,44 @@
+{
+  "name": "ads-whatsapp-server",
+  "version": "1.0.0",
+  "description": "Ads x WhatsApp analytics API, ingestion and scheduled reporting",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "backfill": "node src/jobs/backfill.js",
+    "daily": "node src/jobs/runDaily.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.js"
+  },
+  "dependencies": {
+    "@fontsource/cairo": "^5.2.7",
+    "axios": "^1.7.7",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "express-mysql-session": "^3.0.3",
+    "express-rate-limit": "^8.5.2",
+    "express-session": "^1.18.1",
+    "mysql2": "^3.11.3",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.10.1",
+    "puppeteer-core": "^23.11.1"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.9",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.9"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "@emnapi/core": "1.11.1",
+    "@emnapi/runtime": "1.11.1",
+    "@emnapi/wasi-threads": "1.2.2"
+  }
+}

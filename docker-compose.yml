@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    container_name: ads-whatsapp-app
+    env_file: .env
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    # BUG-044 fix: healthcheck inherited from the Dockerfile's HEALTHCHECK;
+    # resource limits prevent a runaway sync/analyze job or memory leak from
+    # starving the host. Tune these against real usage once observed.
+    # Bumped 768M -> 1024M when the per-employee PDF export added a headless
+    # Chromium instance (lib/pdfReport.js) alongside the Node process.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1024M
