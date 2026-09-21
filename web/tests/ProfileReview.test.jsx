@@ -95,7 +95,7 @@ describe("business profile review", () => {
   it("names which tags the AI will never guess", () => {
     renderIt();
     fireEvent.click(screen.getByText("وسوم العملاء"));
-    expect(screen.getByText("نظام آخر — لا يُخمَّن")).toBeTruthy();
+    expect(screen.getByText("نظام آخر يملكها — لا تُخمَّن أبداً")).toBeTruthy();
     expect(screen.getByText("يستنتجه الذكاء الاصطناعي")).toBeTruthy();
   });
 
@@ -109,5 +109,77 @@ describe("business profile review", () => {
     fireEvent.click(screen.getAllByText("مراحل العميل")[0]);
     const badges = [...container.querySelectorAll("li strong")].map((e) => e.textContent).join();
     expect(badges).toMatch(/تحوّل/);
+  });
+});
+
+// The vocabulary the generator proposes is a first draft. The operator is the
+// one who knows the codes their own CRM writes, so every part of it has to be
+// reachable by hand — and the one failure mode that is invisible in a form (a
+// code claimed twice, dropped on save) has to be visible before saving.
+describe("defining tags by hand", () => {
+  const openTags = () => {
+    const onChange = renderIt();
+    fireEvent.click(screen.getByText("وسوم العملاء"));
+    fireEvent.click(screen.getByText("النيّة"));
+    return onChange;
+  };
+
+  it("edits a tag's code and its two labels", () => {
+    const onChange = openTags();
+    fireEvent.change(screen.getByDisplayValue("أ"), { target: { value: "شراء" } });
+    expect(onChange.mock.calls.at(-1)[0].tags.categories[0].tags[0][2]).toBe("شراء");
+  });
+
+  it("forces a code into the shape the schema accepts as it is typed", () => {
+    // Otherwise the operator types "buy now", saves, and the tag silently never
+    // exists — the schema drops anything that fails its pattern.
+    const onChange = openTags();
+    fireEvent.change(screen.getByDisplayValue("A"), { target: { value: "buy now!" } });
+    expect(onChange.mock.calls.at(-1)[0].tags.categories[0].tags[0][0]).toBe("BUYNOW");
+  });
+
+  it("adds an empty row to type into", () => {
+    const onChange = openTags();
+    fireEvent.click(screen.getByText("أضِف وسماً"));
+    expect(onChange.mock.calls.at(-1)[0].tags.categories[0].tags).toHaveLength(2);
+  });
+
+  it("warns on the row when a code is already claimed by another category", () => {
+    const onChange = vi.fn();
+    const p = profile();
+    p.tags.categories[1].tags = [["A", "a", "أ"]];     // same code as "intent"
+    render(<ProfileReview profile={p} summary={{}} warnings={[]} repairs={[]}
+      lang="ar" onChange={onChange} />);
+    fireEvent.click(screen.getByText("وسوم العملاء"));
+    fireEvent.click(screen.getByText("الفوترة"));
+    expect(screen.getByText(/مستعمَل في فئة أخرى/)).toBeTruthy();
+  });
+
+  it("deletes a tag from the vocabulary without inventing a retired entry", () => {
+    // Retirement — what keeps an old board row rendering a name rather than a
+    // bare code — belongs to activation, which sees both the old and the new
+    // document. Writing it here too would strand an entry as soon as someone
+    // deleted a tag and added it back before saving.
+    const onChange = openTags();
+    fireEvent.click(screen.getAllByText("حذف").at(-1));
+    const next = onChange.mock.calls.at(-1)[0];
+    expect(next.tags.categories[0].tags).toHaveLength(0);
+    expect(next.retired?.tags ?? []).toEqual([]);
+  });
+
+  it("adds a whole category, defaulting to the AI as its source", () => {
+    const onChange = renderIt();
+    fireEvent.click(screen.getByText("وسوم العملاء"));
+    fireEvent.click(screen.getByText("أضِف فئة وسوم"));
+    const added = onChange.mock.calls.at(-1)[0].tags.categories.at(-1);
+    expect(added).toMatchObject({ key: "", source: "ai", tags: [] });
+  });
+
+  it("states why each source exists, next to the choice itself", () => {
+    // Which system owns a tag is the most consequential choice here and the
+    // least self-explanatory; three bare words in a dropdown would not carry it.
+    openTags();
+    expect(screen.getByText(/ولا مكان آخر/)).toBeTruthy();
+    expect(screen.getByText(/تبدو تماماً كحالة حقيقية/)).toBeTruthy();
   });
 });

@@ -554,6 +554,26 @@ code{background:var(--surface-2);border:1px solid var(--border);border-radius:5p
 .setup-tagcat{display:flex;align-items:center;gap:10px;padding:7px 0;border-block-end:1px solid var(--surface-1)}
 .setup-tagcat strong{flex:1}
 
+/* ---- Hand-editing the tag vocabulary ------------------------------------- */
+/* A source choice carries its own justification, so the card is a two-line
+   block rather than a radio with a word next to it. */
+.setup-source-card{display:flex;align-items:flex-start;gap:8px;margin-block:6px;padding:8px 10px;
+  border:1px solid var(--border);border-radius:8px;cursor:pointer;font-weight:500}
+.setup-source-card:has(input:checked){border-color:var(--primary);background:var(--primary-tint)}
+.setup-source-card input{inline-size:auto;flex:none;margin:3px 0 0;accent-color:var(--primary)}
+.setup-source-card strong{display:block;font-size:13px;color:var(--ink)}
+.setup-source-card em{display:block;font-style:normal;font-size:12px;color:var(--ink-muted);line-height:1.6}
+
+.setup-tagtable{inline-size:100%;table-layout:fixed}
+.setup-tagtable th{font-size:12px;color:var(--ink-muted);font-weight:600;text-align:start}
+.setup-tagtable td{vertical-align:top;padding-block:4px}
+.setup-tagtable th:last-child,.setup-tagtable td:last-child{inline-size:78px}
+.setup-tagtable input{font-size:13px}
+/* A code that will be dropped on save is marked where it is typed, not in a
+   summary afterwards. */
+.setup-tagtable tr.tag-bad input{border-color:var(--danger)}
+.setup-key.bad{display:block;margin-block-start:3px;color:var(--danger);font-family:inherit;line-height:1.5}
+
 /* ---- Skipped step in the wizard rail ------------------------------------- */
 .setup-steps li.skipped{color:var(--ink-muted)}
 .setup-steps li.skipped .n{background:var(--warning-tint);color:var(--warning)}
