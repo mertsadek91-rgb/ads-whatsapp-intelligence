@@ -235,6 +235,8 @@ const AR_TO_EN = {
   "المدير العام": "General manager",
   // How far back every import reads.
   "مدى البيانات المستوردة": "How much history to import",
+  "تعذّر قراءة هذا الإعداد": "Could not read this setting",
+  "إن كان الخادم يعمل منذ ما قبل هذه الميزة، أعِد تشغيله.": "If the server has been running since before this feature, restart it.",
   "يحدّد من أي تاريخ يقرأ النظام حملات Meta ومحادثات واتساب. الحالي": "Decides how far back Meta campaigns and WhatsApp conversations are read. Currently",
   "كل البيانات المتاحة — نحو 37 شهراً من Meta، وكل جهات اتصال واتساب": "Everything available — about 37 months from Meta, and every WhatsApp contact",
   "من تاريخ محدّد": "From a specific date",

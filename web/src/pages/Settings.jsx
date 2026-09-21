@@ -110,7 +110,7 @@ export default function Settings() {
 // setting is broken.
 function DataRangeSection() {
   const { t } = useI18n();
-  const { data, reload } = useFetch("/settings/data-range");
+  const { data, error, loading, reload } = useFetch("/settings/data-range");
   const [mode, setMode] = useState(null);      // "default" | "all" | "date"
   const [date, setDate] = useState("");
   const [msgs, setMsgs] = useState(false);
@@ -123,7 +123,27 @@ function DataRangeSection() {
     setDate(data.since && data.since !== "all" ? data.since : "");
     setMsgs(!!data.watiMessages);
   }, [data]);
-  if (!data || !mode) return null;
+
+  // Never disappear silently. An older server process that predates this route
+  // answers 404, and returning null then made the whole setting invisible with
+  // nothing on screen to explain why it was missing — which is indistinguishable
+  // from never having been built.
+  if (loading || error || !data || !mode) {
+    return (
+      <div className="section">
+        <h3>{t("مدى البيانات المستوردة")}</h3>
+        {loading ? <p className="muted">{t("جارٍ التحميل…")}</p> : (
+          <p className="bad">
+            {t("تعذّر قراءة هذا الإعداد")}: {error || "—"}
+            <br />
+            <span className="muted">
+              {t("إن كان الخادم يعمل منذ ما قبل هذه الميزة، أعِد تشغيله.")}
+            </span>
+          </p>
+        )}
+      </div>
+    );
+  }
 
   const since = mode === "all" ? "all" : mode === "date" ? date : "";
 
