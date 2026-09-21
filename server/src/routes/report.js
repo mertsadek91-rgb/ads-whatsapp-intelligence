@@ -5,9 +5,13 @@ import * as ds from "../lib/deepseek.js";
 import { streamCsv } from "../lib/csvStream.js";
 import { langOf, headers, cellMapper, agentLabel } from "../lib/reportI18n.js";
 import { normalizeAgentName } from "../lib/agentName.js";
-import { patternLabel, BUSINESS_RULES_AR, BUSINESS_RULES_EN } from "../lib/businessKnowledge.js";
+import { getProfile } from "../lib/profileStore.js";
+import { patternLabel as patternLabelFor, businessRules } from "../lib/profileDerived.js";
+
+const patternLabel = (k, lang) => patternLabelFor(getProfile(), k, lang);
 import { buildReportHtml, htmlToPdf } from "../lib/pdfReport.js";
 import { wrap } from "../lib/wrap.js";
+import { businessContext } from "../lib/promptContext.js";
 
 // Clean employee names from Wati (the canonical vocabulary the noisy
 // AI-extracted agent_name values are normalized against).
@@ -286,8 +290,10 @@ router.post("/employee/:agent/notes", wrap(async (req, res) => {
 
   const en = lang === "en";
   const system = en
-    ? `You are a sales manager and quality coach at a forex/CFD brokerage called "IST Markets". You are writing a performance review for one sales employee based on aggregated AI evaluations of their WhatsApp conversations. Be professional, specific, fair, and constructive. Reply in English, JSON only.`
-    : `أنت مدير مبيعات ومدرّب جودة لدى شركة وساطة تداول اسمها "IST Markets". تكتب مراجعة أداء لموظف مبيعات واحد بناءً على تقييمات آلية مجمّعة لمحادثاته على واتساب. كن مهنياً ومحدّداً وعادلاً وبنّاءً. أجب بالعربية وبصيغة JSON فقط.`;
+    ? `${businessContext("en")}
+You are a sales manager and quality coach here. You are writing a performance review for one sales employee based on aggregated AI evaluations of their WhatsApp conversations. Be professional, specific, fair, and constructive. Reply in English, JSON only.`
+    : `${businessContext("ar")}
+أنت مدير مبيعات ومدرّب جودة لدى هذه الشركة. تكتب مراجعة أداء لموظف مبيعات واحد بناءً على تقييمات آلية مجمّعة لمحادثاته على واتساب. كن مهنياً ومحدّداً وعادلاً وبنّاءً. أجب بالعربية وبصيغة JSON فقط.`;
   const user = (en
     ? `Employee: ${agent}\nPeriod: ${since || "start"} → ${until || "today"}\nAnalyzed conversations: ${rows.length}\n\nProduce JSON exactly like:\n`
     : `الموظف: ${agent}\nالفترة: ${since || "البداية"} → ${until || "اليوم"}\nعدد المحادثات المحلّلة: ${rows.length}\n\nأنتج JSON بهذا الشكل بالضبط:\n`) + `
@@ -312,7 +318,7 @@ ${JSON.stringify(compact).slice(0, 45000)}`;
 
 // ---- conversation coaching: opening/dropout pattern comparison ----
 // Groups an employee's already-analyzed conversations by the fixed
-// opening/dropout pattern_key (see lib/businessKnowledge.js), keeping the
+// opening/dropout pattern_key (see the profile’s sales_patterns), keeping the
 // actual affected customers (not just a count) so a manager can look up
 // exactly who got a given weak reply. `measured` counts rows that carry the
 // new schema fields at all, distinct from "measured and found nothing wrong"
@@ -383,8 +389,10 @@ router.post("/employee/:agent/coaching-script", wrap(async (req, res) => {
   const label = patternLabel(pattern_key, en ? "en" : "ar");
   const excerpts = group.customers.map((c) => c.excerpt).filter(Boolean).slice(0, 8);
   const system = en
-    ? `You are a sales manager and quality coach at a forex/CFD brokerage called "IST Markets", writing ONE focused coaching example for a single detected weak pattern in a sales employee's conversations. Be constructive, specific, never blaming. Reply in English, JSON only.\n${BUSINESS_RULES_EN}`
-    : `أنت مدير مبيعات ومدرّب جودة لدى شركة وساطة تداول اسمها "IST Markets"، تكتب مثالاً تدريبياً واحداً مركّزاً لنمط ضعف محدَّد رُصد في محادثات موظف مبيعات. كن بنّاءً ومحدَّداً وغير لوّام. أجب بالعربية وبصيغة JSON فقط.\n${BUSINESS_RULES_AR}`;
+    ? `${businessContext("en")}
+You are a sales manager and quality coach here, writing ONE focused coaching example for a single detected weak pattern in a sales employee's conversations. Be constructive, specific, never blaming. Reply in English, JSON only.\n${businessRules(getProfile(), "en")}`
+    : `${businessContext("ar")}
+أنت مدير مبيعات ومدرّب جودة لدى هذه الشركة، تكتب مثالاً تدريبياً واحداً مركّزاً لنمط ضعف محدَّد رُصد في محادثات موظف مبيعات. كن بنّاءً ومحدَّداً وغير لوّام. أجب بالعربية وبصيغة JSON فقط.\n${businessRules(getProfile(), "ar")}`;
   const user = (en
     ? `Employee: ${agent}\nDetected pattern: ${label} (${pattern_key})\nOccurred ${group.count} time(s) in this period.\nReal excerpts from this employee's conversations showing this pattern:\n`
     : `الموظف: ${agent}\nالنمط المرصود: ${label} (${pattern_key})\nحدث ${group.count} مرة خلال هذه الفترة.\nاقتباسات حقيقية من محادثات هذا الموظف تُظهر هذا النمط:\n`)
@@ -475,8 +483,10 @@ router.post("/insights", wrap(async (req, res) => {
   // The report language follows the UI language at generation time.
   const en = (req.body?.lang) === "en";
   const system = en
-    ? `You are a sales & quality manager at a forex/CFD brokerage. You have aggregated data from analyzed WhatsApp conversations. Produce practical management insights in English, JSON only.`
-    : `أنت مدير مبيعات وجودة لشركة وساطة تداول. لديك بيانات مجمّعة من تحليل محادثات.
+    ? `${businessContext("en")}
+You are a sales and quality manager here. You have aggregated data from analyzed WhatsApp conversations. Produce practical management insights in English, JSON only.`
+    : `${businessContext("ar")}
+أنت مدير مبيعات وجودة لهذه الشركة. لديك بيانات مجمّعة من تحليل محادثات.
 أنتج رؤى إدارية عملية بالعربية بصيغة JSON فقط.`;
   const user = (en
     ? `Analyze these records (${compact.length} analyzed conversations) and produce JSON shaped like:`

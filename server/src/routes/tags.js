@@ -5,7 +5,13 @@ import { query } from "../db.js";
 import { tagCatalog, customersByTag, employeesByTag, customerTags } from "../lib/tagBoard.js";
 import { tagBacklog, pendingTagging, isTagging } from "../jobs/tagBacklog.js";
 import { tagConversation, TAG_VERSION } from "../lib/tagAssign.js";
-import { TAG_INDEX, isKnownTag } from "../lib/tagTaxonomy.js";
+import { getProfile } from "../lib/profileStore.js";
+import * as T from "../lib/profileDerived.js";
+
+const TAG_INDEX = { get: (c) => T.tagIndex(getProfile()).get(c), has: (c) => T.tagIndex(getProfile()).has(c),
+  get size() { return T.tagIndex(getProfile()).size; },
+  [Symbol.iterator]() { return T.tagIndex(getProfile())[Symbol.iterator](); } };
+const isKnownTag = (c) => T.isKnownTag(getProfile(), c);
 import { scanWindow } from "../lib/qualityBoard.js";
 import { budgetRemaining } from "../lib/deepseek.js";
 

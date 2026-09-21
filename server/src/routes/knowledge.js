@@ -2,7 +2,7 @@
 // lets a human edit/approve/delete them, and triggers on-demand generation from
 // recent conversations. The approved set is what will later feed an AI chatbot.
 import { Router } from "express";
-import { generateKB, listKB, kbStats, createManual, updateKB, deleteKB, KB_CATEGORIES } from "../lib/knowledgeBase.js";
+import { generateKB, listKB, kbStats, createManual, updateKB, deleteKB, kbCategories } from "../lib/knowledgeBase.js";
 import { hasKey } from "../lib/deepseek.js";
 
 const router = Router();
@@ -13,7 +13,7 @@ router.get("/", async (req, res) => {
     listKB({ status, category, lang, q: q ? String(q).slice(0, 100) : undefined }),
     kbStats(),
   ]);
-  res.json({ items, stats, categories: KB_CATEGORIES, aiAvailable: hasKey() });
+  res.json({ items, stats, categories: kbCategories(), aiAvailable: hasKey() });
 });
 
 router.post("/generate", async (req, res) => {

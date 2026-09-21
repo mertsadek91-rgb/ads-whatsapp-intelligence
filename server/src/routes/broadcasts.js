@@ -10,7 +10,10 @@ import { query } from "../db.js";
 import { wrap } from "../lib/wrap.js";
 import * as bc from "../lib/broadcast.js";
 import { COUNTRIES, flagEmoji } from "../lib/phoneCountry.js";
-import { CATEGORIES } from "../lib/tagTaxonomy.js";
+import { getProfile } from "../lib/profileStore.js";
+import { categories } from "../lib/profileDerived.js";
+
+const CATEGORIES = () => categories(getProfile());
 
 const router = Router();
 const COUNTRY_BY_ISO = new Map(COUNTRIES.map((c) => [c.iso2, c]));

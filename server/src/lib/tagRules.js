@@ -11,7 +11,10 @@
 // clock reads except the `now` passed in — which is what makes the whole thing
 // testable and makes a re-run reproduce the same answer.
 import { countryOf } from "./phoneCountry.js";
-import { TAG_INDEX } from "./tagTaxonomy.js";
+import { getProfile } from "./profileStore.js";
+import { tagIndex } from "./profileDerived.js";
+
+const TAG_INDEX = { has: (c) => tagIndex(getProfile()).has(c), get: (c) => tagIndex(getProfile()).get(c) };
 
 export const RULE_VERSION = "rule-1";
 
@@ -123,7 +126,7 @@ export function ruleTags(row = {}, now = new Date()) {
   else if (/whatsapp|wati|ctwa/.test(src)) add("CH_WHATSAPP_INBOUND", `source=${row.source}`);
 
   // Campaign intent is only tagged on an explicit keyword. A campaign called
-  // "GCC IST MARKETS - WA - ARABIC" says nothing about IB vs trader, and
+  // a campaign name like "GCC - WA - ARABIC" says nothing about who the lead is, and
   // guessing CAMP_TRADER_ACQ for everything would make the tag meaningless.
   const camp = String(row.campaign_name || "").toLowerCase();
   if (/\bib\b|introduc/.test(camp)) add("CAMP_IB_ACQ", row.campaign_name);

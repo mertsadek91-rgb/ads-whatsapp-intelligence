@@ -1,4 +1,4 @@
-// The IST Markets Wati tag taxonomy — 35 categories, 294 tags, transcribed from
+// A brokerage Wati tag taxonomy — 35 categories, 294 tags, transcribed from
 // the owner's cheat sheet so this file is the one place the vocabulary lives.
 //
 // The important thing here is NOT the list, it is the `source` on every
@@ -387,7 +387,7 @@ export const CATEGORIES = [
   {
     key: "service_interest", dept: "sales", platform: "Sales Agent", source: "ai",
     name_ar: "خط الخدمة المطلوب", name_en: "Service / Product Interest",
-    why_ar: "أي خطوط IST Markets يسأل عنه.",
+    why_ar: "أي خطوط الشركة يسأل عنه.",
     tags: [
       ["SRV_RETAIL_TRADING", "Retail Trading", "تداول الأفراد"],
       ["SRV_IB_PARTNERS", "IB Partners", "شراكات الوسطاء"],

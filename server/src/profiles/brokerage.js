@@ -16,6 +16,7 @@
 // source is exactly what this whole exercise was about removing. An operator
 // migrating a real brokerage fills in `identity.facts` from their own licence.
 import { GENERIC_PROFILE } from "./generic.js";
+import { CATEGORIES as BROKERAGE_TAG_CATEGORIES } from "./brokerageTags.js";
 
 export const BROKERAGE_PROFILE = {
   ...GENERIC_PROFILE,
@@ -164,6 +165,8 @@ you can quote the agent's own message as evidence.`,
     conversion_noun_ar: "إيداع", conversion_noun_en: "Deposit",
     trial_noun_ar: "تجريبي", trial_noun_en: "Demo",
   },
+
+  tags: { categories: BROKERAGE_TAG_CATEGORIES },
 
   kb_categories: [
     { key: "deposit", ar: "الإيداع", en: "Deposit" },

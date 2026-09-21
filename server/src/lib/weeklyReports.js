@@ -4,12 +4,14 @@
 // active-campaign comparison. Each makes ONE bilingual DeepSeek call (returns
 // Arabic + English together) to halve token spend, cached in ads_ai_insights.
 import { query } from "../db.js";
+import { businessContext } from "./promptContext.js";
 import * as ds from "../lib/deepseek.js";
 import { employeeRows, computeKpisAndThemes } from "../routes/report.js";
 import { patternGroups } from "../routes/report.js";
 import { gatherCountries, gatherCampaignTree } from "./analyticsReports.js";
 import { gatherContactStatus, rollup as contactRollup } from "./contactStatus.js";
-import { BUSINESS_RULES_AR } from "./businessKnowledge.js";
+import { getProfile } from "./profileStore.js";
+import { businessRules } from "./profileDerived.js";
 import config from "../config.js";
 
 // ---- Dubai-time week windows (no server-TZ dependence) ----
@@ -225,9 +227,10 @@ export async function gatherEmployeeMonthly(agent, { now = new Date(), force = f
 }
 
 async function aiEmployeeMonthly(agent, d) {
-  const system = `أنت مدرّب مبيعات لشركة وساطة فوركس/عقود فروقات في الخليج. تكتب تقريراً شهرياً لأداء موظف مبيعات: تحلّل تطوّره أسبوعاً بأسبوع داخل الشهر (كل أسبوع مقارنةً بالذي قبله)، وتقارن الشهر كاملاً بالشهر السابق.
+  const system = `${businessContext("ar")}
+أنت مدرّب مبيعات لهذه الشركة. تكتب تقريراً شهرياً لأداء موظف مبيعات: تحلّل تطوّره أسبوعاً بأسبوع داخل الشهر (كل أسبوع مقارنةً بالذي قبله)، وتقارن الشهر كاملاً بالشهر السابق.
 قواعد العمل الثابتة:
-${BUSINESS_RULES_AR}
+${businessRules(getProfile(), "ar")}
 اعتماداً على ملاحظات الأسابيع السابقة المعطاة، حدّد: النقاط التي حُلّت (كانت ملاحظة وتحسّنت)، النقاط الجديدة التي ظهرت، والأخطاء المستمرّة التي ما زال يكرّرها.
 أعِد JSON فقط: {"ar":{"weekly_narrative":"سرد تطوّر الأسابيع","resolved":["..."],"new_points":["..."],"persisting":["..."],"month_narrative":"سرد الشهر مقابل السابق","verdict":"improved|declined|steady"},"en":{...same keys in English...}}.
 verdict إلزامي من القيم الثلاث. استند للأرقام والملاحظات المعطاة فقط، لا تختلق.`;
@@ -249,9 +252,10 @@ verdict إلزامي من القيم الثلاث. استند للأرقام و�
 }
 
 async function aiEmployee(agent, cur, prev, w) {
-  const system = `أنت مدرّب مبيعات لشركة وساطة فوركس/عقود فروقات في الخليج. تكتب تقييماً أسبوعياً لأداء موظف مبيعات بمقارنة أسبوعه الحالي بالأسبوع السابق.
+  const system = `${businessContext("ar")}
+أنت مدرّب مبيعات لهذه الشركة. تكتب تقييماً أسبوعياً لأداء موظف مبيعات بمقارنة أسبوعه الحالي بالأسبوع السابق.
 قواعد العمل الثابتة:
-${BUSINESS_RULES_AR}
+${businessRules(getProfile(), "ar")}
 أعِد JSON فقط بالشكل: {"ar":{"verdict":"improved|declined|steady","narrative":"فقرة موجزة","tips":["..."],"mistakes":["..."]},"en":{...same keys in English...}}.
 verdict إلزامي من هذه القيم الثلاث فقط. tips نصائح تسويقية عملية للأسبوع القادم، mistakes أخطاء يجب تجنّبها. كن محدداً واستند للأرقام المعطاة فقط، لا تختلق بيانات.`;
   const user = JSON.stringify({
@@ -384,7 +388,8 @@ async function gatherCostBlock(cur) {
 }
 
 async function aiCampaigns(campaigns, w) {
-  const system = `أنت محلل حملات إعلانية مدفوعة (Meta) لشركة وساطة فوركس/عقود فروقات. تقارن أداء كل حملة نشطة في آخر 7 أيام بالأسبوع السابق وتوصي بقرار.
+  const system = `${businessContext("ar")}
+أنت محلل حملات إعلانية مدفوعة (Meta) لهذه الشركة. تقارن أداء كل حملة نشطة في آخر 7 أيام بالأسبوع السابق وتوصي بقرار.
 أعِد JSON فقط: {"campaigns":[{"campaign_id":"..","verdict":"keep|watch|close","adjustment_ar":"..","adjustment_en":"..","warning_ar":"..","warning_en":".."}]}.
 verdict إلزامي من: keep (أداء جيد، أبقِها)، watch (متذبذبة، راقبها)، close (ضعيفة/مكلفة، أغلِقها). adjustment تعديل عملي مقترح، warning تحذير إن وُجد (أو نص فارغ). استند للأرقام فقط، لا تختلق.`;
   const user = JSON.stringify({

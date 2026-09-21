@@ -6,6 +6,7 @@ import { adsManagerUrl } from "../lib/meta.js";
 import { gatherCountries, gatherCampaignTree } from "../lib/analyticsReports.js";
 import config from "../config.js";
 import { wrap } from "../lib/wrap.js";
+import { businessContext } from "../lib/promptContext.js";
 
 // Read per call, not captured at import — the ad account is chosen during
 // setup and can be changed later without restarting.
@@ -472,8 +473,10 @@ router.post("/post-insights", wrap(async (req, res) => {
   // ---- Phase 1: the success playbook from the winners ----
   const top = posts.slice(0, 10).map(enrich);
   const lessonsSystem = (en
-    ? `You are a Meta ads content strategist for a forex/CFD brokerage. Derive what makes this account's WINNING posts work. `
-    : `أنت خبير استراتيجية محتوى إعلانات Meta لشركة وساطة تداول. استخلص ما الذي يجعل بوستات هذا الحساب الرابحة تنجح. `) + honesty
+    ? `${businessContext("en")}
+You are a Meta ads content strategist for this company. Derive what makes this account's WINNING posts work. `
+    : `${businessContext("ar")}
+أنت خبير استراتيجية محتوى إعلانات Meta لهذه الشركة. استخلص ما الذي يجعل بوستات هذا الحساب الرابحة تنجح. `) + honesty
     + (en ? ` Reply in English, JSON only.` : ` أجب بالعربية وبصيغة JSON فقط.`);
   const lessonsUser = (en
     ? `Top posts by qualified customers:\n`
@@ -489,8 +492,10 @@ router.post("/post-insights", wrap(async (req, res) => {
 
   // ---- Phase 2: judge EVERY post against the playbook, in batches ----
   const judgeSystem = (en
-    ? `You are a Meta ads content reviewer for a forex/CFD brokerage. Judge EACH post against this account's proven winning formula:\n${playbook.map((l) => "- " + l).join("\n")}\n`
-    : `أنت مُقيِّم محتوى إعلانات Meta لشركة وساطة تداول. قيِّم كل بوست مقابل وصفة النجاح المثبتة لهذا الحساب:\n${playbook.map((l) => "- " + l).join("\n")}\n`) + honesty
+    ? `${businessContext("en")}
+You are a Meta ads content reviewer for this company. Judge EACH post against this account's proven winning formula:\n${playbook.map((l) => "- " + l).join("\n")}\n`
+    : `${businessContext("ar")}
+أنت مُقيِّم محتوى إعلانات Meta لهذه الشركة. قيِّم كل بوست مقابل وصفة النجاح المثبتة لهذا الحساب:\n${playbook.map((l) => "- " + l).join("\n")}\n`) + honesty
     + (en ? ` Reply in English, JSON only.` : ` أجب بالعربية وبصيغة JSON فقط.`);
   let evaluated = 0, failedChunks = 0;
   for (let i = 0; i < posts.length; i += 12) {

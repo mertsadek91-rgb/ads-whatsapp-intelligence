@@ -12,7 +12,19 @@
 //    to the minimum deposit" is the question a sales manager actually asks, and
 //    an OR-only filter cannot express it.
 import { query } from "../db.js";
-import { CATEGORIES, TAG_INDEX, tagLabel, categoryLabel, DEPARTMENTS, SOURCES } from "./tagTaxonomy.js";
+import { getProfile } from "./profileStore.js";
+import * as T from "./profileDerived.js";
+import { SOURCES } from "./profileConstants.js";
+
+const CATEGORIES = () => T.categories(getProfile());
+const TAG_INDEX = { get: (c) => T.tagIndex(getProfile()).get(c), has: (c) => T.tagIndex(getProfile()).has(c),
+  get size() { return T.tagIndex(getProfile()).size; },
+  [Symbol.iterator]() { return T.tagIndex(getProfile())[Symbol.iterator](); } };
+const tagLabel = (c, lang) => T.tagLabel(getProfile(), c, lang);
+const categoryLabel = (k, lang) => T.categoryLabel(getProfile(), k, lang);
+// Departments are a label set, not a business decision; the profile carries
+// each category’s dept string directly.
+const DEPARTMENTS = {};
 import { normalizeAgentName } from "./agentName.js";
 
 const VISIBLE = "t.review_status <> 'rejected'";

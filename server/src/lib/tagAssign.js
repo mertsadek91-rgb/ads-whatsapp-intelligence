@@ -12,7 +12,14 @@
 // guess from a fact once it is a row in the database.
 import ds from "./deepseek.js";
 import { query } from "../db.js";
-import { aiCategories, TAG_INDEX, exclusiveGroups, sourceOf } from "./tagTaxonomy.js";
+import { getProfile } from "./profileStore.js";
+import { businessContext } from "./promptContext.js";
+import * as T from "./profileDerived.js";
+
+const aiCategories = () => T.aiCategories(getProfile());
+const TAG_INDEX = { get: (c) => T.tagIndex(getProfile()).get(c), has: (c) => T.tagIndex(getProfile()).has(c) };
+const exclusiveGroups = () => T.exclusiveGroups(getProfile());
+const sourceOf = (c) => T.sourceOf(getProfile(), c);
 import { ruleTags, segmentTag } from "./tagRules.js";
 
 // Bump when the prompt or the vocabulary changes — that is what makes a re-tag
@@ -37,18 +44,22 @@ function vocabulary() {
   }).join("\n\n");
 }
 
-const SYSTEM = `أنت محلّل بيانات عملاء في شركة وساطة مالية (IST Markets). مهمّتك الوحيدة: قراءة محادثة واتساب بين عميل وموظف مبيعات، وإسناد وسوم (tags) تصف **العميل** — من هو، وماذا يريد، وما مستواه، ولماذا انصرف إن انصرف.
+// The rules here are universal — evidence, honest confidence, intent is not
+// achievement, never guess what another system owns. Only the opening line and
+// the illustrations were industry-specific, and those now come from the profile.
+const systemPrompt = (p) => `${businessContext("ar", p)}
+أنت محلّل بيانات عملاء لهذه الشركة. مهمّتك الوحيدة: قراءة محادثة واتساب بين عميل وموظف مبيعات، وإسناد وسوم (tags) تصف **العميل** — من هو، وماذا يريد، وما مستواه، ولماذا انصرف إن انصرف.
 
 القواعد التي لا تُخالَف:
 
-1. **لا تسم إلا ما قاله العميل أو الموظف فعلاً.** إن لم تُذكر العملة الرقمية في المحادثة فلا تضع ASSET_CRYPTO لأن العميل «قد يكون» مهتماً بها. الوسم الخاطئ أسوأ من غياب الوسم، لأن التقرير لا يستطيع التمييز بين تخمين وحقيقة.
+1. **لا تسم إلا ما قاله العميل أو الموظف فعلاً.** إن لم يُذكر شيء في المحادثة فلا تضع وسمه لأن العميل «قد يكون» مهتماً به. الوسم الخاطئ أسوأ من غياب الوسم، لأن التقرير لا يستطيع التمييز بين تخمين وحقيقة.
 2. **لكل وسم دليل حرفي**: اقتباس مقتضب من المحادثة (بلغتها الأصلية) يبرّر الوسم. بلا اقتباس لا وسم.
 3. **الثقة رقم صادق** بين 0 و1: 0.9+ إن صرّح العميل بذلك حرفياً، 0.7 إن كان استنتاجاً قوياً من كلامه، أقل من 0.6 إن كان ترجيحاً. لا تُبالغ في الثقة.
-4. **النيّة ليست إنجازاً**: من قال «أريد فتح حساب حقيقي» نيّته INTENT_OPEN_LIVE — ولا يعني أنه فتحه. من قال «سأودع 5000 دولار» نيّته INTENT_DEPOSIT — ولا يعني أنه أودع. أرقام الإيداع الفعلية وحالة الحساب وحالة التحقّق من الهوية كلها مصادرها أنظمة أخرى، ولستَ مسؤولاً عنها ولا يجوز أن تخمّنها.
-5. **الحرارة** (ENG_HOT / ENG_WARM / ENG_COLD) تُقاس من استعداده للخطوة التالية: من يسأل عن طريقة الإيداع الآن ساخن، ومن يقول «سأفكر» فاتر، ومن لا يردّ أو يرفض بارد.
+4. **النيّة ليست إنجازاً**: من قال «أريد الاشتراك» نيّته اشتراك — ولا يعني أنه اشترك. المبالغ الفعلية وحالة الحساب وحالة التحقّق مصادرها أنظمة أخرى، ولستَ مسؤولاً عنها ولا يجوز أن تخمّنها. الوسوم المعلَّمة بأن مصدرها نظام آخر لم تُعطَ لك أصلاً.
+5. **الحرارة** (ENG_HOT / ENG_WARM / ENG_COLD) تُقاس من استعداده للخطوة التالية: من يطلب الخطوة التالية الآن ساخن، ومن يقول «سأفكر» فاتر، ومن لا يردّ أو يرفض بارد.
 6. **سبب الخسارة (LOST_*)** لا يوضع إلا إن ظهر السبب في المحادثة بكلام العميل — لا تخترع سبباً لأن المحادثة انتهت بلا نتيجة.
 6ب. **ENG_OPTED_OUT و ENG_DO_NOT_WHATSAPP لهما وزن تشغيلي خاص**: وضعهما يمنع النظام من إدراج العميل في متابعة الموظف نهائياً. لا تضعهما إلا عند **طلب صريح بإيقاف المراسلة** («لا تراسلني»، «أزلني من القائمة»، «توقفوا عن الإرسال»). رفض مهذّب لعرض («لا شكراً»، «غير مهتم حالياً») ليس طلب إيقاف — ذاك ENG_COLD أو LOST_NOT_INTERESTED. الخطأ هنا يُفقد الشركة عميلاً قابلاً للاسترجاع بصمت.
-7. **البونص (BONUS_*)** يُوسم بما عرضه الموظف صراحةً في رسالته، لا بما قد يستحقّه العميل.
+7. **العروض والحوافز** تُوسم بما عرضه الموظف صراحةً في رسالته، لا بما قد يستحقّه العميل.
 8. استخدم **الرموز الحرفية** من القائمة فقط. أي رمز خارجها يُرفض ويُهمَل.
 9. من الطبيعي أن تُخرج 3–8 وسوم لمحادثة عادية. محادثة من رسالتين قد لا تحتمل أكثر من وسم أو اثنين — وهذا مقبول. لا تملأ القائمة لتبدو مجتهداً.`;
 
@@ -151,7 +162,7 @@ export async function tagConversation(waId, { thread = null, contact = null, now
   let ai = [], dropped = [], customer_type = null;
   // Two messages carry no customer profile worth paying to read.
   if (useAi && thread.length >= 3) {
-    const raw = await ds.chatJSON(SYSTEM, `${schemaHint()}\n\n=== نص المحادثة ===\n${buildTranscript(thread)}`, `tags:${waId}`);
+    const raw = await ds.chatJSON(systemPrompt(getProfile()), `${schemaHint()}\n\n=== نص المحادثة ===\n${buildTranscript(thread)}`, `tags:${waId}`);
     const v = validateAiTags(raw);
     ai = v.tags; dropped = v.dropped; customer_type = v.customer_type;
   }

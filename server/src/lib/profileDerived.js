@@ -153,6 +153,13 @@ export function tagLabel(p, code, lang = "ar") {
 }
 
 /** Groups where at most one tag may be true at once. */
+export const categories = (p) => p.tags?.categories || [];
+export const isKnownTag = (p, code) => tagIndex(p).has(code);
+export function categoryLabel(p, key, lang = "ar") {
+  const c = categories(p).find((x) => x.key === key);
+  return c ? (lang === "en" ? c.name_en : c.name_ar) || key : key;
+}
+
 export function exclusiveGroups(p) {
   const groups = [];
   for (const c of p.tags?.categories || []) {
@@ -180,5 +187,6 @@ export default {
   stages, stageKeys, qualifiedStageKeys, convertedStageKeys, stageWeight, normalizeStageKey,
   kbCategories, kbCategoryKeys,
   tagIndex, tagCount, sourceOf, aiCategories, aiTagCodes, tagLabel, exclusiveGroups,
+  categories, isKnownTag, categoryLabel,
   scoringWeights, conversionWeights, leadScoreSettings,
 };

@@ -8,12 +8,20 @@
 // lands as status='draft' for a human to approve here before it feeds a chatbot.
 import { createHash } from "crypto";
 import { query } from "../db.js";
+import { businessContext } from "./promptContext.js";
 import * as ds from "../lib/deepseek.js";
-import { BUSINESS_RULES_AR, BUSINESS_RULES_EN } from "./businessKnowledge.js";
+import { getProfile } from "./profileStore.js";
+import { businessRules, kbCategoryKeys } from "./profileDerived.js";
 
-export const KB_CATEGORIES = ["deposit", "withdrawal", "account", "risk", "fees", "platform", "regulation", "general"];
-const CAT_SET = new Set(KB_CATEGORIES);
-const clampCat = (c) => (CAT_SET.has(String(c || "").toLowerCase()) ? String(c).toLowerCase() : "general");
+// The buckets a question can fall into are this business’s, not a broker’s:
+// "deposit / withdrawal / leverage" means nothing to a clinic.
+export const kbCategories = () => kbCategoryKeys(getProfile());
+const CAT_SET = () => new Set(kbCategories());
+const clampCat = (c) => {
+  const v = String(c || "").toLowerCase();
+  const set = CAT_SET();
+  return set.has(v) ? v : (set.has("general") ? "general" : [...set][0] || "general");
+};
 
 const normalizeQ = (q) => String(q || "").toLowerCase().replace(/\s+/g, " ").replace(/[؟?.!،,]+$/g, "").trim();
 export const qHash = (q) => createHash("sha1").update(normalizeQ(q)).digest("hex");
@@ -64,12 +72,13 @@ export async function generateKB({ limit = 150, now = new Date() } = {}) {
     };
   });
 
-  const system = `أنت خبير امتثال ومحتوى لشركة وساطة فوركس/عقود فروقات في الخليج. مهمّتك: من عيّنة محادثات عملاء حقيقية، استخرج أكثر الأسئلة تكراراً التي يطرحها العملاء، واكتب لكل سؤال إجابة نموذجية دقيقة ومتوافقة.
+  const system = `${businessContext("ar")}
+أنت خبير امتثال ومحتوى لهذه الشركة. مهمّتك: من عيّنة محادثات عملاء حقيقية، استخرج أكثر الأسئلة تكراراً التي يطرحها العملاء، واكتب لكل سؤال إجابة نموذجية دقيقة ومتوافقة.
 قواعد العمل الثابتة (التزم بها حرفياً):
-${BUSINESS_RULES_AR}
-${BUSINESS_RULES_EN}
+${businessRules(getProfile(), "ar")}
+${businessRules(getProfile(), "en")}
 قيود صارمة على الإجابات: لا تَعِد بأي ربح أو عوائد؛ اذكر أن التداول ينطوي على مخاطر وقد يخسر رأس المال؛ لا تقدّم نصيحة استثمارية شخصية؛ الدورات التدريبية تأتي بعد فتح الحساب؛ كن موجزاً ومهنياً.
-أعِد JSON فقط بالشكل: {"pairs":[{"category":"deposit|withdrawal|account|risk|fees|platform|regulation|general","question_ar":"..","answer_ar":"..","question_en":"..","answer_en":".."}]}.
+أعِد JSON فقط بالشكل: {"pairs":[{"category":"${kbCategories().join("|")}","question_ar":"..","answer_ar":"..","question_en":"..","answer_en":".."}]}.
 أنتج حتى 12 زوجاً للأسئلة الأكثر تكراراً وأهمية فقط. استند للعيّنة فقط، لا تختلق أسئلة غير موجودة.`;
   const user = JSON.stringify({ sample_size: sample.length, conversations: sample });
   const raw = await ds.chatJSON(system, user, "kb-generate");
@@ -131,4 +140,4 @@ export async function deleteKB(id) {
   return { ok: true };
 }
 
-export default { generateKB, listKB, kbStats, createManual, updateKB, deleteKB, qHash, KB_CATEGORIES };
+export default { generateKB, listKB, kbStats, createManual, updateKB, deleteKB, qHash, kbCategories };

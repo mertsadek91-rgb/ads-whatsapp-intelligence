@@ -9,7 +9,7 @@ import { describe, it, expect } from "vitest";
 import {
   CATEGORIES, TAG_INDEX, TAG_COUNT, aiTags, aiCategories, exclusiveGroups,
   sourceOf, tagLabel, categoryLabel, isKnownTag,
-} from "../src/lib/tagTaxonomy.js";
+} from "../src/profiles/brokerageTags.js";
 import { ruleTags, segmentTag, languageTag, unmappedCountries } from "../src/lib/tagRules.js";
 import { COUNTRIES } from "../src/lib/phoneCountry.js";
 import { validateAiTags } from "../src/lib/tagAssign.js";

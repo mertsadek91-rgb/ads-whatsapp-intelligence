@@ -9,7 +9,10 @@
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { patternLabel } from "./businessKnowledge.js";
+import { getProfile } from "./profileStore.js";
+import { patternLabel as patternLabelFor } from "./profileDerived.js";
+
+const patternLabel = (k, lang) => patternLabelFor(getProfile(), k, lang);
 import { enumLabel, agentLabel } from "./reportI18n.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

@@ -29,15 +29,10 @@ function sourceFiles(dir, acc = []) {
 // tracked separately: those strings become the editable business profile, which
 // is generated per installation rather than swept with a regex. Listing them
 // here keeps the exemption explicit instead of silently weakening the guard.
-const PROMPT_LAYER = [
-  "src/lib/tagAssign.js",
-  "src/lib/tagTaxonomy.js",
-  "src/lib/tagRules.js",
-  "src/lib/knowledgeBase.js",
-  "src/lib/weeklyReports.js",
-  "src/routes/report.js",
-  "src/routes/analytics.js",
-];
+// Everything that once named one company has been migrated to the editable
+// business profile. profiles/brokerage* is industry DATA, not a company
+// identity — its legal name, licence number and address are deliberately blank.
+const PROMPT_LAYER = [];
 
 const scanned = sourceFiles(path.join(root, "src"))
   .concat(sourceFiles(path.join(root, "tests")))
