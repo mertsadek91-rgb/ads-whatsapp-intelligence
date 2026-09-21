@@ -68,11 +68,21 @@ export function requireNotInstalled(req, res, next) {
 }
 
 export function requireSetupAccess(req, res, next) {
-  const s = state.readState();
   const token = ensureInstallToken();
 
-  const authorised = tokenMatches(presentedToken(req), token)
-    || (isLocalRequest(req) && !activeClaim(s));
+  // Two separate questions, and conflating them locked people out:
+  //
+  //   requireSetupAccess — MAY you reach the installer at all? Being on the
+  //   machine answers yes. The token exists for everyone else.
+  //   requireClaim       — are you the operator currently running it?
+  //
+  // This used to also require `!activeClaim(...)`, so the moment ANY claim
+  // existed a local operator was asked for a token printed in a log they may no
+  // longer have. That is not a security boundary — a second local operator is
+  // already refused by requireClaim, with a message saying who holds it — it
+  // just blocked the legitimate one, including after a restart left a stale
+  // claim behind.
+  const authorised = isLocalRequest(req) || tokenMatches(presentedToken(req), token);
 
   if (!authorised) {
     return res.status(401).json({

@@ -64,6 +64,26 @@ describe("install token", () => {
     expect(r.status).toBe(200);
   });
 
+  it("never asks someone on the machine for a token, even once a claim exists", async () => {
+    // The bug this pins: requireSetupAccess also demanded !activeClaim, so the
+    // moment ANY claim existed — including a stale one left by a restart — a
+    // local operator was asked for a token printed in a log they may no longer
+    // have. Being on the machine is the access answer; who holds the installer
+    // is requireClaim's job, and it refuses a second operator on its own.
+    ensureInstallToken();
+    claim({ ip: "127.0.0.1" });                    // somebody already claimed
+    const r = await request(guarded()).post("/step").send({});
+    expect(r.status).not.toBe(401);
+  });
+
+  it("still demands the token from a remote caller once a claim exists", async () => {
+    ensureInstallToken();
+    claim({ ip: "127.0.0.1" });
+    const r = await request(guarded()).post("/step")
+      .set("X-Forwarded-For", "203.0.113.9").send({});
+    expect(r.status).toBe(401);
+  });
+
   it("does not leak the token from the open status route", async () => {
     const token = ensureInstallToken();
     const r = await request(guarded()).get("/open");

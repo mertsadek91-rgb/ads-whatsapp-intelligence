@@ -32,6 +32,7 @@ export default function SetupApp() {
   const [tested, setTested] = useState({});
   const [done, setDone] = useState([]);
   const [tokenPrompt, setTokenPrompt] = useState(false);
+  const [conflict, setConflict] = useState(null);   // another session holds the installer
   const [gen, setGen] = useState(null);      // the generated profile under review
   const [genBusy, setGenBusy] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
@@ -85,16 +86,19 @@ export default function SetupApp() {
    * treats a re-claim by the same holder as a no-op too, but not asking again
    * is the honest version: we already hold it.
    */
-  async function claimIfNeeded() {
-    if (getClaimId()) return true;
-    const r = await setupApi.claim();
+  async function claimIfNeeded({ takeover = false } = {}) {
+    if (getClaimId() && !takeover) return true;
+    const r = await setupApi.claim(takeover);
     if (r.status === 401) { setTokenPrompt(true); return false; }
     if (r.status === 409) {
-      setResult({ ok: false, code: "SETUP_IN_PROGRESS",
-        ar: `معالج التنصيب مفتوح بالفعل من ${r.data.claimedFrom}. إن كنت أنت، أعِد تحميل الصفحة؛ وإلا انتظر حتى ينتهي.`,
-        en: `The installer is already open from ${r.data.claimedFrom}. If that is you, reload the page; otherwise wait until it finishes.` });
+      // A held claim is usually the operator's own earlier session — a closed
+      // browser, a restart, a stale record. Saying "someone else has it" and
+      // stopping there leaves them waiting an hour for a TTL they cannot see,
+      // so offer the takeover instead of only describing the problem.
+      setConflict(r.data.claimedFrom || "?");
       return false;
     }
+    setConflict(null);
     if (r.data?.claimId) setClaimId(r.data.claimId);
     return true;
   }
@@ -219,6 +223,17 @@ export default function SetupApp() {
 
       <main className="setup-main">
         <h2>{lang === "en" ? STEP_TITLES[step][1] : STEP_TITLES[step][0]}</h2>
+
+        {conflict && (
+          <div className="setup-result err">
+            <strong>{t("المعالج مفتوح من جلسة أخرى", "The installer is open in another session")}</strong>
+            <p>{t(`آخر جلسة بدأت من ${conflict}. إن كانت لك — أغلقت المتصفّح أو أعدت تشغيل الخادم — فاستلم المعالج من هنا.`,
+                  `The last session started from ${conflict}. If that was you — a closed browser or a restarted server — take it over here.`)}</p>
+            <button className="btn" onClick={async () => {
+              if (await claimIfNeeded({ takeover: true })) setResult(null);
+            }}>{t("هذا أنا — استلم المعالج", "That was me — take over")}</button>
+          </div>
+        )}
 
         {tokenPrompt && (
           <div className="setup-result err">
