@@ -644,3 +644,26 @@ from ads_wati_contacts w
 left join ads_meta_ad_perf p on p.ad_id = w.source_ad_id
 left join ads_lead_review r on r.wa_id = w.wa_id
 where w.stage in ('qualified','interested','demo','deposit');
+
+-- ---------------------------------------------------------------------------
+-- Operator-entered configuration written by the setup wizard and the Settings
+-- page: Meta / Wati / AI / SMTP credentials, schedules, locale.
+--
+-- Deliberately NOT folded into ads_settings. That table is already owned by
+-- lib/metaAuth.js for live token STATE (meta_access_token and its expiry),
+-- plus currency rates, the kiosk token and work hours. Mixing operator
+-- configuration into the same flat key space risks collisions, and it has no
+-- is_secret flag and no updated_by — both of which matter here. Keeping them
+-- apart also means metaAuth.js needs no change at all.
+--
+-- Keys are namespaced to mirror the config object: "meta.appSecret",
+-- "wati.token", "deepseek.apiKey". Rows with is_secret=1 hold an AES-256-GCM
+-- envelope from lib/secretBox.js, so a database dump does not hand over every
+-- credential in plaintext.
+create table if not exists app_config (
+    k varchar(96) primary key,
+    v text,
+    is_secret tinyint(1) not null default 0,
+    updated_by varchar(191),
+    updated_at datetime default current_timestamp on update current_timestamp
+);

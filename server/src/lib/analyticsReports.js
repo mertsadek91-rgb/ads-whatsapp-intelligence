@@ -7,7 +7,9 @@ import { countryOf } from "./phoneCountry.js";
 import { adsManagerUrl } from "./meta.js";
 import config from "../config.js";
 
-const ACCT = config.meta.accountId;
+// Read per call, not captured at import — the ad account is chosen during
+// setup and can be changed later without restarting.
+const ACCT = () => config.meta.accountId;
 const QUAL = "('qualified','interested','demo','deposit')";
 const QSET = new Set(["qualified", "interested", "demo", "deposit"]);
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || "");
@@ -131,11 +133,11 @@ export async function gatherCampaignTree(since, until) {
     };
     const c = (camps[a.campaign_id] ||= {
       campaign_id: a.campaign_id, name: a.campaign_name, metrics: zero(), adsets: {},
-      manage_url: adsManagerUrl(ACCT, { campaignId: a.campaign_id }),
+      manage_url: adsManagerUrl(ACCT(), { campaignId: a.campaign_id }),
     });
     const s = (c.adsets[a.adset_id] ||= { adset_id: a.adset_id, name: a.adset_name, metrics: zero(), ads: [] });
     s.ads.push({ ad_id: a.ad_id, name: a.ad_name, status: a.status, metrics: m,
-      manage_url: adsManagerUrl(ACCT, { adId: a.ad_id }) });
+      manage_url: adsManagerUrl(ACCT(), { adId: a.ad_id }) });
     add(s.metrics, m);
     add(c.metrics, m);
   }

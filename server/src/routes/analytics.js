@@ -7,7 +7,9 @@ import { gatherCountries, gatherCampaignTree } from "../lib/analyticsReports.js"
 import config from "../config.js";
 import { wrap } from "../lib/wrap.js";
 
-const ACCT = config.meta.accountId;
+// Read per call, not captured at import — the ad account is chosen during
+// setup and can be changed later without restarting.
+const ACCT = () => config.meta.accountId;
 
 const router = Router();
 
@@ -56,7 +58,7 @@ router.get("/summary", wrap(async (req, res) => {
 router.get("/campaigns", wrap(async (req, res) => {
   const rows = await query(`select campaign_id,campaign_name,status,spend_aed,impressions,clicks,ctr_pct,result_type,results,cpr_aed
                         from ads_meta_campaign_perf order by spend_aed desc`);
-  for (const r of rows) r.manage_url = adsManagerUrl(ACCT, { campaignId: r.campaign_id });
+  for (const r of rows) r.manage_url = adsManagerUrl(ACCT(), { campaignId: r.campaign_id });
   res.json(rows);
 }));
 
@@ -88,7 +90,7 @@ router.get("/ads", wrap(async (req, res) => {
      order by qualified desc, convos_meta desc`,
     [...jf.params, ...hp]
   );
-  for (const r of rows) r.manage_url = adsManagerUrl(ACCT, { adId: r.ad_id });
+  for (const r of rows) r.manage_url = adsManagerUrl(ACCT(), { adId: r.ad_id });
   res.json(rows);
 }));
 
@@ -154,7 +156,7 @@ router.get("/posts", wrap(async (req, res) => {
     delete r.has_active; delete r.has_status;
     // A post may back several ads; the deep link opens the ad when we have one,
     // otherwise the campaign — either way it lands the owner on this exact post.
-    r.manage_url = adsManagerUrl(ACCT, { adId: r.ad_id, campaignId: r.campaign_id });
+    r.manage_url = adsManagerUrl(ACCT(), { adId: r.ad_id, campaignId: r.campaign_id });
   }
 
   // Ad-level delivery metrics per post. This CANNOT ride on the contacts join

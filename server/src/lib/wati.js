@@ -16,12 +16,27 @@ function ensureTenant(base, token) {
   return base;
 }
 
-const BASE = ensureTenant(config.wati.endpoint, config.wati.token);
-const http = axios.create({
-  baseURL: BASE,
-  headers: { Authorization: `Bearer ${config.wati.token}`, "Content-Type": "application/json" },
-  timeout: 40000,
-});
+// The client is rebuilt whenever the endpoint or token changes, rather than
+// frozen at import. Memoised on the pair so the common case is still one
+// object for the life of the process.
+let _client = null, _clientKey = "";
+
+export function watiBase() {
+  return ensureTenant(config.wati.endpoint, config.wati.token);
+}
+
+function http() {
+  const key = `${config.wati.endpoint}|${config.wati.token}`;
+  if (!_client || _clientKey !== key) {
+    _clientKey = key;
+    _client = axios.create({
+      baseURL: watiBase(),
+      headers: { Authorization: `Bearer ${config.wati.token}`, "Content-Type": "application/json" },
+      timeout: 40000,
+    });
+  }
+  return _client;
+}
 
 /**
  * The business number a contact belongs to (from the whatsapp_<number> custom
@@ -44,7 +59,7 @@ const channelParams = (channel) => (channel ? { channelPhoneNumber: String(chann
 async function get(pathname, params = {}) {
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const r = await http.get(pathname, { params });
+      const r = await http().get(pathname, { params });
       return r.data;
     } catch (e) {
       if (e.response && e.response.status === 429) {
@@ -178,7 +193,7 @@ export async function assignOperator(waId, email, channel = null) {
   const params = { email, whatsappNumber: waId, ...channelParams(channel) };
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const r = await http.post("/api/v1/assignOperator", {}, { params, validateStatus: () => true });
+      const r = await http().post("/api/v1/assignOperator", {}, { params, validateStatus: () => true });
       if (r.status === 429) { await sleep(2000 * (attempt + 1)); continue; }
       if (r.status >= 500 && attempt < 2) { await sleep(800 * (attempt + 1)); continue; }
       if (r.status >= 400) return { result: false, info: `HTTP ${r.status}` };
@@ -290,7 +305,7 @@ export async function createBroadcast({ broadcastName, templateId, contactIds, q
   };
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const r = await http.post("/api/v1/broadcast/createAndAddLinks", body, {
+      const r = await http().post("/api/v1/broadcast/createAndAddLinks", body, {
         params: { channelId: "" }, validateStatus: () => true,
       });
       if (r.status === 429) { await sleep(2000 * (attempt + 1)); continue; }
@@ -322,8 +337,10 @@ export async function createBroadcast({ broadcastName, templateId, contactIds, q
   return { ok: false, error: "retries exhausted" };
 }
 
-export { BASE as WATI_BASE };
+// Was `export { BASE as WATI_BASE }` — a value frozen at import. Nothing ever
+// imported it, so it becomes the function the setup wizard needs to show the
+// operator which tenant URL their token actually resolves to.
 export default {
-  field, parseCreated, toDate, lastUpdated, iterContacts, firstResponse, WATI_BASE: BASE,
+  field, parseCreated, toDate, lastUpdated, iterContacts, firstResponse, watiBase,
   getMessageTemplates, createBroadcast,
 };

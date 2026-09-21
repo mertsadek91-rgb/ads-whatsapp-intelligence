@@ -5,7 +5,10 @@ import * as metaAuth from "../lib/metaAuth.js";
 import { upsert, query } from "../db.js";
 import config from "../config.js";
 
-const SINCE = config.meta.periodSince;
+// Read per run, not at import: the install date is chosen during setup.
+// Falls back to the lookback window when nothing has been configured.
+const since = () => config.meta.periodSince
+  || new Date(Date.now() - config.meta.lookbackDays * 86400000).toISOString().slice(0, 10);
 const AD_COLS = ["ad_id","ad_name","campaign_id","campaign_name","adset_id","adset_name","status","spend_aed",
   "impressions","reach","clicks","ctr_pct","cpc_aed","cpm_aed","frequency","results","cpr_aed","period_since","period_until"];
 const ADSET_COLS = ["adset_id","adset_name","campaign_id","campaign_name","status","spend_aed","impressions",
@@ -28,12 +31,12 @@ export async function ingestMeta(opts = {}) {
     return { skipped: true };
   }
   const until = opts.until || daysAgo(1);
-  const dailySince = opts.full ? SINCE : daysAgo(8);
+  const dailySince = opts.full ? since() : daysAgo(8);
 
-  const ads = await meta.adPeriod(SINCE, until);
+  const ads = await meta.adPeriod(since(), until);
   await upsert("ads_meta_ad_perf", AD_COLS, ads.map((a) => [
     a.ad_id, a.ad_name, a.campaign_id, a.campaign_name, a.adset_id, a.adset_name, a.status, a.spend,
-    a.impressions, a.reach, a.clicks, a.ctr, a.cpc, a.cpm, a.frequency, a.results, a.cpr, SINCE, until,
+    a.impressions, a.reach, a.clicks, a.ctr, a.cpc, a.cpm, a.frequency, a.results, a.cpr, since(), until,
   ]), ["ad_id"]);
 
   // Creative image + real post text (caption) for display and content
@@ -50,19 +53,19 @@ export async function ingestMeta(opts = {}) {
     }
   } catch (e) { console.warn("[meta] creatives skipped:", e.message); }
 
-  const adsets = await meta.adsetPeriod(SINCE, until);
+  const adsets = await meta.adsetPeriod(since(), until);
   await upsert("ads_meta_adset_perf", ADSET_COLS, adsets.map((s) => [
     s.adset_id, s.adset_name, s.campaign_id, s.campaign_name, s.status, s.spend, s.impressions,
-    s.clicks, s.ctr, s.cpc, s.cpm, s.frequency, s.result_type, s.results, s.cpr, SINCE, until,
+    s.clicks, s.ctr, s.cpc, s.cpm, s.frequency, s.result_type, s.results, s.cpr, since(), until,
   ]), ["adset_id"]);
 
-  const camps = await meta.campaignPeriod(SINCE, until);
+  const camps = await meta.campaignPeriod(since(), until);
   await upsert("ads_meta_campaign_perf", C_COLS, camps.map((c) => [
     c.campaign_id, c.campaign_name, c.objective, c.status, c.spend, c.impressions, c.clicks,
-    c.ctr, c.cpm, c.frequency, c.result_type, c.results, c.cpr, SINCE, until,
+    c.ctr, c.cpm, c.frequency, c.result_type, c.results, c.cpr, since(), until,
   ]), ["campaign_id"]);
 
-  const months = await meta.campaignMonthly(SINCE, until);
+  const months = await meta.campaignMonthly(since(), until);
   await upsert("ads_meta_month", M_COLS, months.map((m) => [
     m.month, m.campaign_id, m.spend, m.impressions, m.clicks, m.results,
   ]), ["month", "campaign_id"]);

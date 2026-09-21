@@ -6,8 +6,14 @@
 // top of this; see routes/settings.js and jobs/nightlyReports.js.
 import config from "../config.js";
 import { query } from "../db.js";
+import { onConfigChange } from "./appConfig.js";
 
 let transporterPromise = null;
+
+// Drop the memoised transporter whenever configuration is re-hydrated, or a
+// change to the SMTP host/credentials would keep sending through the old
+// server until the process restarted.
+onConfigChange(() => { transporterPromise = null; });
 
 export function isConfigured() {
   const s = config.smtp;

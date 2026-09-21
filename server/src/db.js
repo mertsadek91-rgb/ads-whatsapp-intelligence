@@ -6,14 +6,42 @@ import config from "./config.js";
 
 let _pool = null;
 
+/** True once a database has actually been configured (env or setup wizard). */
+export function isConfigured() {
+  return !!(config.mysql && config.mysql.host && config.mysql.database);
+}
+
+function mysqlSettings() {
+  if (!isConfigured()) {
+    // Deliberately explicit. config.mysql is null on a fresh install rather
+    // than a fabricated root@127.0.0.1, so callers get "not configured yet"
+    // instead of a confusing ECONNREFUSED against a host nobody chose.
+    throw new Error("قاعدة البيانات غير مهيّأة بعد — أكمل خطوة الإعداد أولاً (database not configured)");
+  }
+  return config.mysql;
+}
+
+/**
+ * Drop the pool so the next call rebuilds it from the current config. The setup
+ * wizard needs this: it validates and saves database credentials in a running
+ * process, and without it the app would keep using the pool built at boot from
+ * whatever was (or wasn't) configured then.
+ */
+export async function resetPool() {
+  const old = _pool;
+  _pool = null;
+  if (old) await old.end().catch(() => {});
+}
+
 export function pool() {
   if (!_pool) {
+    const my = mysqlSettings();
     _pool = mysql.createPool({
-      host: config.mysql.host,
-      port: config.mysql.port,
-      user: config.mysql.user,
-      password: config.mysql.password,
-      database: config.mysql.database,
+      host: my.host,
+      port: my.port,
+      user: my.user,
+      password: my.password,
+      database: my.database,
       charset: "utf8mb4",
       waitForConnections: true,
       connectionLimit: 8,
@@ -41,12 +69,13 @@ export async function query(sql, params = []) {
 
 /** Run a multi-statement SQL script (schema). Uses a one-off multipleStatements connection. */
 export async function runScript(sqlText) {
+  const my = mysqlSettings();
   const conn = await mysql.createConnection({
-    host: config.mysql.host,
-    port: config.mysql.port,
-    user: config.mysql.user,
-    password: config.mysql.password,
-    database: config.mysql.database,
+    host: my.host,
+    port: my.port,
+    user: my.user,
+    password: my.password,
+    database: my.database,
     charset: "utf8mb4",
     multipleStatements: true,
     timezone: "Z", // BUG-003 fix — see pool() above
@@ -110,4 +139,4 @@ export async function upsert(table, cols, rows, conflictCols, { coalesceCols = [
   return total;
 }
 
-export default { pool, query, runScript, upsert };
+export default { pool, query, runScript, upsert, resetPool, isConfigured };

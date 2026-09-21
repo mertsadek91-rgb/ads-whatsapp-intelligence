@@ -37,7 +37,7 @@ export async function withLeaderLock(name, fn) {
 // other's lock and skipped their own nightly run — reports just stopped for one
 // of them, logging nothing but "another instance already holds the lock".
 // Keying on the database name makes the lock per-install, as intended.
-const lockName = (job) => `${config.mysql.database}:${job}`;
+const lockName = (job) => `${config.mysql?.database || "app"}:${job}`;
 
 export function startScheduler() {
   if (!cron.validate(config.cronTime)) {

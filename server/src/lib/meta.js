@@ -5,8 +5,18 @@ import axios from "axios";
 import config from "../config.js";
 import { getToken } from "./metaAuth.js";
 
-const API = `https://graph.facebook.com/${config.meta.apiVersion}`;
-const ACCT = config.meta.accountId;
+// Read through functions, never captured at import: the setup wizard and the
+// Settings page write these into the running process, and a module-level const
+// would keep serving the value that happened to be set at boot.
+const API = () => `https://graph.facebook.com/${config.meta.apiVersion}`;
+const ACCT = () => config.meta.accountId;
+
+/** Throws a clear message instead of building a request against act_undefined. */
+function acctOrThrow() {
+  const a = ACCT();
+  if (!a) throw new Error("حساب إعلانات Meta غير مهيّأ — أكمل خطوة الإعداد (Meta ad account not configured)");
+  return a;
+}
 const MSG_RESULT = "onsite_conversion.messaging_conversation_started_7d";
 
 /**
@@ -17,7 +27,7 @@ const MSG_RESULT = "onsite_conversion.messaging_conversation_started_7d";
  * UI then just shows the raw id with no link. Values are URL-encoded.
  */
 export function adsManagerUrl(accountId, { adId, campaignId } = {}) {
-  const acct = accountId || ACCT;
+  const acct = accountId || ACCT();
   if (!acct || (!adId && !campaignId)) return null;
   const base = "https://adsmanager.facebook.com/adsmanager/manage";
   const q = `act=${encodeURIComponent(acct)}`;
@@ -75,7 +85,7 @@ export async function fbGet(url, params, attempt = 0) {
 
 async function insights(params) {
   const t = await token();
-  let url = `${API}/act_${ACCT}/insights`;
+  let url = `${API()}/act_${acctOrThrow()}/insights`;
   let q = { ...params, access_token: t };
   const out = [];
   while (url) {
@@ -151,7 +161,7 @@ const ACT_FIELDS = BASE_FIELDS + ",actions,cost_per_action_type";
 // statuses with no error at all.
 async function statusMap(entityPath) {
   const map = {};
-  let url = `${API}/act_${ACCT}/${entityPath}`;
+  let url = `${API()}/act_${acctOrThrow()}/${entityPath}`;
   let params = { fields: "effective_status", limit: 500, access_token: await token() };
   while (url) {
     const r = await fbGet(url, params);
@@ -180,7 +190,7 @@ async function videoCovers(videoIds) {
   const t = await token();
   for (const vid of videoIds) {
     try {
-      const r = await fbGet(`${API}/${vid}/thumbnails`, { access_token: t });
+      const r = await fbGet(`${API()}/${vid}/thumbnails`, { access_token: t });
       const th = r.data.data || [];
       const best = th.find((x) => x.is_preferred)
         || th.reduce((a, b) => ((b.width || 0) > (a?.width || 0) ? b : a), null);
@@ -208,7 +218,7 @@ async function videoCovers(videoIds) {
 export async function adCreatives() {
   const map = {};
   const videoOf = {}; // ad_id -> video_id, for ads still lacking a sharp cover
-  let url = `${API}/act_${ACCT}/ads`;
+  let url = `${API()}/act_${acctOrThrow()}/ads`;
   let params = {
     fields: "creative.thumbnail_width(1080).thumbnail_height(1080){image_url,thumbnail_url,body,title,object_type,video_id,object_story_spec{link_data{message,name,description,picture,child_attachments{picture}},video_data{message,title,image_url,video_id}}}",
     limit: 500, access_token: await token(),

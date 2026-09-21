@@ -7,7 +7,10 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import config from "./config.js";
+import config, { isStrongSecret } from "./config.js";
+import * as setupState from "./lib/setupState.js";
+import * as appConfig from "./lib/appConfig.js";
+import { setKeyProvider } from "./lib/secretBox.js";
 import { pool } from "./db.js";
 import { healthCheck } from "./lib/health.js";
 import { apiLog } from "./middleware/apiLog.js";
@@ -34,6 +37,13 @@ import { ensureSchema } from "./jobs/backfill.js";
 import { startScheduler } from "./jobs/scheduler.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// config.js no longer hard-exits on a missing SESSION_SECRET. Resolve it here
+// instead: an explicitly-set environment value is still validated strictly, and
+// otherwise a strong one is generated and persisted so a fresh install boots
+// rather than dying with a FATAL that pushes operators toward the example value.
+config.auth.sessionSecret = setupState.ensureSessionSecret({ isStrongSecret });
+setKeyProvider(() => setupState.ensureSecretKey());
+
 const app = express();
 
 // BUG-010 fix: MemoryStore (express-session's default) leaks memory under
@@ -124,6 +134,12 @@ if (fs.existsSync(dist)) {
 async function boot() {
   try { await ensureSchema(); }
   catch (e) { console.error("[boot] schema ensure failed:", e.message); }
+  // Database-backed configuration (what the setup wizard and the Settings page
+  // write) layered over whatever the environment supplied.
+  try {
+    const r = await appConfig.hydrate();
+    if (r.applied) console.log("[boot] applied " + r.applied + " stored configuration values");
+  } catch (e) { console.error("[boot] config hydrate failed:", e.message); }
   // BUG-012 fix: only safe to hydrate job status from ads_job_state once
   // ensureSchema() above has guaranteed the table exists (matters on a fresh
   // database's very first boot).

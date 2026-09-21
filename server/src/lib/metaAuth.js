@@ -7,7 +7,8 @@ import axios from "axios";
 import config from "../config.js";
 import { query } from "../db.js";
 
-const GRAPH = `https://graph.facebook.com/${config.meta.apiVersion}`;
+// Function, not a const: the API version is reconfigurable at runtime.
+const GRAPH = () => `https://graph.facebook.com/${config.meta.apiVersion}`;
 const KEY_TOKEN = "meta_access_token";
 const KEY_EXP = "meta_token_expires_at";
 
@@ -45,13 +46,13 @@ function fbErr(e) {
 }
 
 export async function debugToken(token) {
-  const r = await axios.get(`${GRAPH}/debug_token`,
+  const r = await axios.get(`${GRAPH()}/debug_token`,
     { params: { input_token: token, access_token: appAccessToken() }, timeout: 30000 });
   return r.data.data; // { is_valid, expires_at, scopes, app_id, ... }
 }
 
 export async function exchangeForLongLived(shortToken) {
-  const r = await axios.get(`${GRAPH}/oauth/access_token`, {
+  const r = await axios.get(`${GRAPH()}/oauth/access_token`, {
     params: {
       grant_type: "fb_exchange_token",
       client_id: config.meta.appId,
@@ -141,7 +142,7 @@ export function buildAuthUrl(state) {
 }
 
 export async function handleCallback(code) {
-  const r = await axios.get(`${GRAPH}/oauth/access_token`, {
+  const r = await axios.get(`${GRAPH()}/oauth/access_token`, {
     params: {
       client_id: config.meta.appId,
       client_secret: config.meta.appSecret,

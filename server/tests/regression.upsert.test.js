@@ -15,6 +15,13 @@ vi.mock("mysql2/promise", () => ({
   default: { createPool: () => ({ query: queryMock }) },
 }));
 
+// db.js now refuses to build a pool against an unconfigured database rather
+// than dialling a fabricated root@127.0.0.1, so this unit test has to say which
+// database it is pretending to talk to.
+vi.mock("../src/config.js", () => ({
+  default: { mysql: { host: "db.test", port: 3306, user: "u", password: "p", database: "testdb" } },
+}));
+
 const { upsert } = await import("../src/db.js");
 
 beforeEach(() => queryMock.mockClear());
