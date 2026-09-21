@@ -1,0 +1,99 @@
+# The guards in this repo are only as good as something that runs them.
+#
+# Several of the tests here are not unit tests at all — they scan the shipped
+# source for a company name, an ad account id or a real WhatsApp number, and
+# check that .env.example still describes what config.js reads. Those exist to
+# stop a regression reaching a customer's report header, which means they have
+# to run on every change, not when someone remembers.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is what the Docker image runs; 22 is what developers have. Both,
+        # because a lockfile that resolves on one and not the other is exactly
+        # the class of problem that made `npm ci` fail here before.
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      # ci, not install: this fails if the lockfile and manifest disagree, which
+      # is what keeps the Docker build reproducible.
+      - run: npm ci
+        working-directory: server
+      - run: npm test
+        working-directory: server
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+
+  # The real install, against a real MySQL. Everything else mocks the driver,
+  # which proves the logic but not that the schema applies or that the server
+  # accepts `INSERT ... AS new`.
+  install:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpw
+          MYSQL_DATABASE: install_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -prootpw"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        working-directory: server
+      - run: npm run test:integration
+        working-directory: server
+        env:
+          TEST_MYSQL_URL: mysql://root:rootpw@127.0.0.1:3306/install_test
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    # The image was never actually built in CI before, so a broken Dockerfile
+    # was only discovered by whoever next tried to deploy.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ads-whatsapp:ci .

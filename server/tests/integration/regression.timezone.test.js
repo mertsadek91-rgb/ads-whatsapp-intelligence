@@ -6,9 +6,16 @@
 // scripts/audit-timezone.js: write-time mismatch = 0, driver-read mismatch =
 // 100% before the fix, 0% after). Fixed by pinning `timezone: 'Z'` in db.js.
 import { describe, it, expect } from "vitest";
+import config, { parseMysqlUrl } from "../../src/config.js";
 import { query } from "../../src/db.js";
 
-describe("BUG-003: mysql2 must read DATE columns as UTC verbatim (no local-TZ shift)", () => {
+// Needs a real database with real rows. Skips rather than fails when there is
+// none, so `npm run test:integration` reports honestly instead of erroring on
+// a machine that simply has no database configured.
+if (process.env.TEST_MYSQL_URL) config.mysql = parseMysqlUrl(process.env.TEST_MYSQL_URL);
+const suite = config.mysql ? describe : describe.skip;
+
+suite("BUG-003: mysql2 must read DATE columns as UTC verbatim (no local-TZ shift)", () => {
   it("created_date (driver-read) matches created_at's raw calendar day (MySQL-side, no driver reinterpretation) for every contact", async () => {
     const rows = await query(
       `select wa_id, created_date,
