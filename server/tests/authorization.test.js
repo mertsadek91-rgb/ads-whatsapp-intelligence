@@ -57,24 +57,27 @@ describe("requireRole", () => {
   });
 });
 
-describe("the money-spending and configuration routes are gated in server.js", () => {
-  const src = readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+describe("the money-spending and configuration routes are gated in app.js", () => {
+  // The API router is assembled in app.js rather than at import, because the
+  // session store needs a live database pool and the app must be able to listen
+  // before one exists. Paths here are router-relative.
+  const src = readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
 
   it.each([
-    ['app.use("/api/admin", requireRole("admin"), adminRoutes);', "full resync / job control"],
-    ['app.use("/api/meta", requireRole("admin"), metaAuthRoutes);', "rotates the ad-platform token"],
-    ['app.use("/api/broadcasts", requireRole("admin"), broadcastsRoutes);', "sends messages that cost money"],
-    ['app.use("/api/users", requireRole("admin"), usersRoutes);', "account administration"],
-    ['app.use("/api/assignment", requireRole("admin", "manager"), assignmentRoutes);', "operations"],
+    ['r.use("/admin", requireRole("admin"), adminRoutes);', "full resync / job control"],
+    ['r.use("/meta", requireRole("admin"), metaAuthRoutes);', "rotates the ad-platform token"],
+    ['r.use("/broadcasts", requireRole("admin"), broadcastsRoutes);', "sends messages that cost money"],
+    ['r.use("/users", requireRole("admin"), usersRoutes);', "account administration"],
+    ['r.use("/assignment", requireRole("admin", "manager"), assignmentRoutes);', "operations"],
   ])("%s  // %s", (mount) => {
     expect(src).toContain(mount);
   });
 
-  it("/api/settings stays on requireAuth at the mount, because every user loads currency rates", () => {
+  it("/settings stays on requireAuth at the mount, because every user loads currency rates", () => {
     // The CurrencyProvider fetches /settings/currency on every page for every
     // signed-in account. Admin-gating the mount would blank the whole UI for
     // managers and viewers, so the read/write split lives inside the router.
-    expect(src).toContain('app.use("/api/settings", requireAuth, settingsRoutes);');
+    expect(src).toContain('r.use("/settings", requireAuth, settingsRoutes);');
     const settings = readFileSync(new URL("../src/routes/settings.js", import.meta.url), "utf8");
     for (const write of [
       'router.post("/currency"', 'router.post("/employees"', 'router.delete("/employees/:id"',
@@ -83,6 +86,20 @@ describe("the money-spending and configuration routes are gated in server.js", (
     ]) {
       expect(settings).toContain(write + ", admin,");
     }
+  });
+
+  it("answers every API path with setup_required until the app is installed", () => {
+    // Without this an unconfigured install would return confusing database
+    // errors from deep inside a route instead of telling the SPA to go to /setup.
+    expect(src).toContain('error: "setup_required"');
+    expect(src).toContain("let runtimeRouter = notInstalledRouter;");
+  });
+
+  it("keeps /api/health answering 200 during setup, or Docker kills the container", () => {
+    // The Dockerfile HEALTHCHECK hits /api/health. Reporting 503 because no
+    // database is configured would restart the container before anyone could
+    // reach the wizard to configure one.
+    expect(src).toContain('return res.json({ ok: true, mode: "setup" });');
   });
 });
 

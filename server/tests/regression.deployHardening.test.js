@@ -33,7 +33,8 @@ describe("D-4: req.ip must be the real client behind a reverse proxy", () => {
 });
 
 describe("D-5: the session cookie must be Secure in production, and only with trust proxy", () => {
-  const src = readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  // Express wiring lives in app.js; server.js is the boot state machine.
+  const src = readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
 
   it("marks the cookie Secure in production", () => {
     expect(src).toMatch(/secure:\s*process\.env\.NODE_ENV === "production"/);
@@ -43,7 +44,7 @@ describe("D-5: the session cookie must be Secure in production, and only with tr
     // Order is load-bearing, not cosmetic: a secure cookie configured before
     // Express knows it is behind TLS termination breaks login outright.
     const trust = src.indexOf('app.set("trust proxy"');
-    const sess = src.indexOf("app.use(session(");
+    const sess = src.indexOf("r.use(session(");
     expect(trust).toBeGreaterThan(-1);
     expect(sess).toBeGreaterThan(-1);
     expect(trust).toBeLessThan(sess);

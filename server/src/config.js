@@ -84,7 +84,9 @@ export const config = {
     // which number via ?channelPhoneNumber=<number>, derived per contact from
     // its whatsapp_<number> param, so no second token/endpoint is needed.
   },
-  appBaseUrl: (E.APP_BASE_URL || "http://localhost:3000").replace(/\/$/, ""),
+  // Derived from PORT when not set explicitly, so the setup banner prints a URL
+  // that actually works on a non-default port rather than always saying :3000.
+  appBaseUrl: (E.APP_BASE_URL || `http://localhost:${num(E.PORT, 3000)}`).replace(/\/$/, ""),
   meta: {
     token: E.META_ACCESS_TOKEN || "",   // optional seed; the live token lives in the DB
     appId: E.META_APP_ID || "",

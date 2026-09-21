@@ -1,0 +1,149 @@
+// Express wiring, split from the boot sequence so the app can listen BEFORE it
+// has a database.
+//
+// The setup wizard has to be reachable on a machine where nothing is
+// configured yet, which means the process must start and serve HTTP with no
+// MySQL connection at all. Express cannot un-register middleware once mounted,
+// so every authenticated route is reached through one indirection — a `let`
+// holding the current API router — and boot swaps it from "not installed" to
+// the real thing once setup completes. That is what lets the wizard finish
+// without asking the operator to restart anything.
+import express from "express";
+import session from "express-session";
+import MySQLStoreFactory from "express-mysql-session";
+import cookieParser from "cookie-parser";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+
+import config from "./config.js";
+import { pool } from "./db.js";
+import { healthCheck } from "./lib/health.js";
+import { apiLog } from "./middleware/apiLog.js";
+import { requireAuth, requireRole } from "./middleware/auth.js";
+import * as setupState from "./lib/setupState.js";
+
+import authRoutes from "./routes/auth.js";
+import usersRoutes from "./routes/users.js";
+import analyticsRoutes from "./routes/analytics.js";
+import leadsRoutes from "./routes/leads.js";
+import adminRoutes from "./routes/admin.js";
+import metaAuthRoutes from "./routes/metaAuth.js";
+import conversationsRoutes from "./routes/conversations.js";
+import reportRoutes from "./routes/report.js";
+import settingsRoutes from "./routes/settings.js";
+import knowledgeRoutes from "./routes/knowledge.js";
+import salesboardRoutes from "./routes/salesboard.js";
+import assignmentRoutes from "./routes/assignment.js";
+import tagRoutes from "./routes/tags.js";
+import broadcastsRoutes from "./routes/broadcasts.js";
+import qualityReviewRoutes from "./routes/qualityReview.js";
+import publicBoardRoutes from "./routes/publicBoard.js";
+import setupRoutes from "./routes/setup.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Answers every /api/* path until setup completes. 503 with a machine-readable
+// code so the SPA can route the user to the wizard instead of showing a
+// generic failure.
+const notInstalledRouter = express.Router();
+notInstalledRouter.use((req, res) => res.status(503).json({
+  error: "setup_required",
+  message: "التطبيق لم يُهيّأ بعد — افتح /setup لإكمال التنصيب (application is not set up yet)",
+}));
+
+let runtimeRouter = notInstalledRouter;
+export function setRuntimeRouter(r) { runtimeRouter = r; }
+
+export const app = express();
+
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS || 0));
+app.use(express.json({ limit: "2mb" }));
+app.use(cookieParser());
+app.use("/api", apiLog);
+
+// ---- Always available, in both modes -------------------------------------
+
+// The Dockerfile HEALTHCHECK hits this. In setup mode it MUST answer 200:
+// reporting 503 because no database is configured would have Docker kill the
+// container before anyone could reach the wizard to configure one.
+app.get("/api/health", async (req, res) => {
+  if (!setupState.isInstalled()) return res.json({ ok: true, mode: "setup" });
+  const result = await healthCheck();
+  res.status(result.ok ? 200 : 503).json({ ...result, mode: "running" });
+});
+
+app.use("/api/setup", setupRoutes);
+
+// ---- Everything else goes through the swappable router -------------------
+app.use("/api", (req, res, next) => runtimeRouter(req, res, next));
+
+/**
+ * The real API, assembled only once a database exists — the session store needs
+ * a live pool, so this cannot be built at import time.
+ */
+export function buildApiRouter() {
+  const r = express.Router();
+
+  // BUG-010: MemoryStore leaks under load and forgets every session on restart.
+  // Table creation is owned by ensureSchema(), not this library.
+  const MySQLStore = MySQLStoreFactory(session);
+  const store = new MySQLStore(
+    { createDatabaseTable: false, schema: { tableName: "ads_sessions" } }, pool());
+
+  r.use(session({
+    store,
+    secret: config.auth.sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      // Coupled to `trust proxy` above: secure:true without it makes Express
+      // see req.protocol === "http" behind a TLS-terminating proxy and refuse
+      // to set the cookie, breaking login. Fixing either alone is wrong.
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7 * 24 * 3600 * 1000,
+    },
+  }));
+
+  r.use("/auth", authRoutes);
+  // Public kiosk board — token-gated, no session (wall-display link).
+  r.use("/public", publicBoardRoutes);
+
+  // Read surfaces: any signed-in account.
+  r.use("/analytics", requireAuth, analyticsRoutes);
+  r.use("/leads", requireAuth, leadsRoutes);
+  r.use("/conversations", requireAuth, conversationsRoutes);
+  r.use("/report", requireAuth, reportRoutes);
+  r.use("/knowledge", requireAuth, knowledgeRoutes);
+  r.use("/salesboard", requireAuth, salesboardRoutes);
+  r.use("/quality", requireAuth, qualityReviewRoutes);
+  r.use("/tags", requireAuth, tagRoutes);
+  // Not admin-gated at the mount: the CurrencyProvider fetches /settings/currency
+  // on every page for every signed-in user. The read/write split lives inside
+  // that router instead.
+  r.use("/settings", requireAuth, settingsRoutes);
+
+  // Write surfaces. Conservative on purpose: admin unless there is a clear
+  // day-to-day reason an operations manager needs it.
+  r.use("/admin", requireRole("admin"), adminRoutes);
+  r.use("/meta", requireRole("admin"), metaAuthRoutes);
+  r.use("/users", requireRole("admin"), usersRoutes);
+  r.use("/assignment", requireRole("admin", "manager"), assignmentRoutes);
+  r.use("/broadcasts", requireRole("admin"), broadcastsRoutes);
+
+  return r;
+}
+
+// ---- Static SPA ----------------------------------------------------------
+const dist = path.resolve(__dirname, "../../web/dist");
+if (fs.existsSync(dist)) {
+  app.use(express.static(dist));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/")) return next();
+    res.sendFile(path.join(dist, "index.html"));
+  });
+}
+
+export default app;
