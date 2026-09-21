@@ -2,7 +2,12 @@
 .env
 .env.*
 !.env.example
-server/data/          # setup.json holds DB credentials + the session/secret keys
+# setup.json holds the database password, the session secret, and the AES key
+# that decrypts every stored API token. Git does NOT accept a trailing comment
+# on a pattern line — it reads the comment as part of the path — so this one
+# matched nothing for six commits and the file was committed. Keep comments on
+# their own line here, always.
+server/data/
 
 # ---- Dependencies / build output ----
 node_modules/

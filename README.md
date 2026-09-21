@@ -42,6 +42,48 @@ docker compose up --build
 > عند أول تشغيل يطبع الخادم **رمز تنصيب** في السجل. لست بحاجة إليه إن كنت تفتح
 > المتصفّح على نفس الجهاز؛ تحتاجه فقط للتنصيب من جهاز آخر.
 
+### على سيرفر حقيقي (لا على جهازك)
+
+المعالج يعمل عبر المتصفّح، فلا بدّ أن يصل إليه المتصفّح — ولا بدّ أن يعرف
+التطبيق عنوانه الخارجي، لأن Meta تعيد التوجيه إليه بعد تسجيل الدخول.
+
+<div dir="ltr">
+
+```bash
+git clone <repo> && cd <repo>
+cp .env.example .env
+```
+
+</div>
+
+عدّل في `.env` قبل التشغيل:
+
+| المتغيّر | القيمة | لماذا |
+|---|---|---|
+| `APP_BASE_URL` | `https://ads.example.com` | يُبنى منه رابط إعادة التوجيه الذي تسجّله في تطبيق Meta؛ إن بقي `localhost` فشل الربط التلقائي. |
+| `SESSION_SECRET` | 32 حرفاً عشوائياً على الأقل | يُرفض المُعرَّف القصير أو الافتراضي عند الإقلاع، لا بعده بأسبوع. |
+| `TRUST_PROXY_HOPS` | `1` خلف بروكسي واحد (Nginx/Traefik/Coolify) | بدونه يرى التطبيق عنوان البروكسي لكل المستخدمين: يُطبَّق حدّ محاولات الدخول على الشركة كلها دفعة واحدة، وسجلّ التدقيق يسجّل عنواناً واحداً. |
+| `MYSQL_*` أو `MYSQL_URL` | قاعدة بياناتك | اتركها فارغة ليطلبها المعالج بنفسه، أو اضبط `MYSQL_URL` لتملكها أنت من النشر. |
+
+<div dir="ltr">
+
+```bash
+docker compose up -d --build
+docker compose logs -f app        # رمز التنصيب يُطبع هنا
+```
+
+</div>
+
+ثم افتح `https://ads.example.com` وامشِ في المعالج. **ستحتاج رمز التنصيب**
+لأنك تفتح المتصفّح من جهاز آخر لا من السيرفر نفسه.
+
+> **HTTPS إجباري عملياً:** ملفّ الجلسة يُعلَّم `secure` خارج بيئة التطوير، أي
+> أن تسجيل الدخول لن يثبت على `http://` عبر الشبكة. أنهِ TLS عند البروكسي.
+
+**مجلّدان لا يجوز أن يضيعا:** `app-data` (فيه `setup.json`: كلمة مرور قاعدة
+البيانات، ومفتاح الجلسة، والمفتاح الذي يفكّ تشفير كل رمز محفوظ) و`mysql-data`.
+كلاهما معرَّف كـ volume في `docker-compose.yml`. حذف الأول يعني تنصيباً من الصفر.
+
 ### خطوات المعالج
 
 1. **قاعدة البيانات** — يختبر الاتصال فعلياً، ويعرض زر «أنشئها لي» إن لم تكن موجودة، ثم يُنشئ كل الجداول.
@@ -144,6 +186,43 @@ Then open `http://localhost:3000`. The installation wizard meets you there.
 
 > On first start the server prints an **install token** to its log. You do not
 > need it when installing from the same machine — only from a different one.
+
+### On a real server
+
+The wizard runs in a browser, so a browser has to reach it — and the app has to
+know its own external address, because Meta redirects back to it after login.
+
+```bash
+git clone <repo> && cd <repo>
+cp .env.example .env
+```
+
+Set these in `.env` before starting:
+
+| Variable | Value | Why |
+|---|---|---|
+| `APP_BASE_URL` | `https://ads.example.com` | The Meta redirect URI you register is built from it. Left as `localhost`, the OAuth connect cannot work. |
+| `SESSION_SECRET` | at least 32 random characters | A short or placeholder value is refused at boot, not a week later. |
+| `TRUST_PROXY_HOPS` | `1` behind one proxy (Nginx/Traefik/Coolify) | Without it every user appears to come from the proxy: the login rate limit throttles the whole company at once, and the audit log records one address for everyone. |
+| `MYSQL_*` or `MYSQL_URL` | your database | Leave unset and the wizard asks for it, or set `MYSQL_URL` to keep it owned by your deployment. |
+
+```bash
+docker compose up -d --build
+docker compose logs -f app        # the install token is printed here
+```
+
+Open `https://ads.example.com` and walk the wizard. You **will** need the
+install token, because you are opening the browser from a different machine
+than the server.
+
+> **HTTPS is effectively required:** the session cookie is marked `secure`
+> outside development, so a login will not persist over plain `http://` across
+> a network. Terminate TLS at the proxy.
+
+**Two volumes must survive:** `app-data` (holds `setup.json` — the database
+password, the session secret, and the key that decrypts every stored API token)
+and `mysql-data`. Both are declared in `docker-compose.yml`. Losing the first
+means installing from scratch.
 
 ### The six steps
 

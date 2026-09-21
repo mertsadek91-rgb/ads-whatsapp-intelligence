@@ -1,4 +1,23 @@
+# Anything not needed to BUILD or RUN the image. Two of these are not merely
+# noise: they would put real credentials inside a distributable artefact.
+
 **/node_modules
 web/dist
 *.log
 .git
+
+# The live install state — database password, session secret, and the AES key
+# that decrypts every stored API token. `COPY server/ ./server/` would bake it
+# into the image on any machine that has run the app. The container gets this
+# directory from a mounted volume instead (see docker-compose.yml).
+server/data
+
+# Real environment values belong to the deployment, never to the image.
+.env
+.env.*
+!.env.example
+
+# Test and CI output.
+**/coverage
+.github
+.claude
