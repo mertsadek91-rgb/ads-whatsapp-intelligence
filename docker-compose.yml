@@ -1,18 +1,60 @@
 services:
+  # MySQL is part of the stack on purpose. Without it `docker compose up` did
+  # not actually produce a running application — it assumed a database that
+  # already existed somewhere, which is not a one-command install.
+  # To use a managed database instead, set MYSQL_URL in .env and delete this
+  # service along with the depends_on block below.
+  mysql:
+    image: mysql:8.4
+    container_name: ads-whatsapp-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ads_whatsapp}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me-app}
+    # utf8mb4 end to end: the product stores Arabic customer names and message
+    # text, and the MySQL server default is not always utf8mb4.
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
   app:
     build: .
     container_name: ads-whatsapp-app
     env_file: .env
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     restart: unless-stopped
-    # BUG-044 fix: healthcheck inherited from the Dockerfile's HEALTHCHECK;
-    # resource limits prevent a runaway sync/analyze job or memory leak from
-    # starving the host. Tune these against real usage once observed.
-    # Bumped 768M -> 1024M when the per-employee PDF export added a headless
-    # Chromium instance (lib/pdfReport.js) alongside the Node process.
+    depends_on:
+      mysql:
+        # Wait for MySQL to actually accept connections, not merely to start.
+        # The wizard's first step is a real connection test, and failing it
+        # because the database is still initialising is a confusing way to
+        # begin an install.
+        condition: service_healthy
+    environment:
+      DATA_DIR: /app/server/data
+    volumes:
+      # setup.json lives here: the database credentials, the session secret and
+      # the key that encrypts everything else. Without this volume the install
+      # is lost every time the image is rebuilt.
+      - app-data:/app/server/data
+    # The healthcheck is inherited from the Dockerfile. Resource limits stop a
+    # runaway sync or analyse job from starving the host; 1024M rather than
+    # 768M because the PDF export runs a headless Chromium alongside Node.
     deploy:
       resources:
         limits:
           cpus: "1.5"
           memory: 1024M
+
+volumes:
+  mysql-data:
+  app-data:
