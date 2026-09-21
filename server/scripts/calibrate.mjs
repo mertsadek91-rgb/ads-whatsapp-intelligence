@@ -9,7 +9,7 @@
 // daily budget as the live analysis.
 import { CALIBRATION_CASES } from "../src/lib/calibrationCases.js";
 import { evaluateThread } from "../src/lib/conversationAnalysis.js";
-import { POLICY_VERSION } from "../src/lib/compliancePolicy.js";
+import { policyVersion, hydrate } from "../src/lib/businessProfile.js";
 import config from "../src/config.js";
 
 const want = process.argv.slice(2);
@@ -19,7 +19,7 @@ if (!cases.length) { console.error("no matching cases"); process.exit(1); }
 const NON_CRITICAL = new Set(["informational", "minor", "moderate"]);
 const results = [];
 
-console.log(`calibration · model=${config.deepseek.model} · policy=${POLICY_VERSION} · ${cases.length} cases\n`);
+console.log(`calibration · model=${config.deepseek.model} · policy=${policyVersion()} · ${cases.length} cases\n`);
 
 for (const c of cases) {
   let got = { issues: [], flags: [] }, error = null;

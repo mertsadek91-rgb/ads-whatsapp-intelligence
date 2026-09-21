@@ -404,7 +404,7 @@ create table if not exists ads_kb_qa (
 -- detection that the existing board and reports depend on.
 create table if not exists ads_conversation_eval (
     wa_id varchar(191) not null,
-    policy_version varchar(16) not null,     -- compliancePolicy.POLICY_VERSION
+    policy_version varchar(16) not null,     -- the business profile's policy_version
     model varchar(64),
     prompt_version varchar(32),
     -- the seven per-conversation employee marks (0..100, null = not assessable)
@@ -416,7 +416,7 @@ create table if not exists ads_conversation_eval (
     customer_risk_flags json,                -- describes the CUSTOMER, never a violation
     -- outcome
     next_step_reached tinyint(1) default 0,
-    next_step_type varchar(48),              -- compliancePolicy.NEXT_STEP_TYPES
+    next_step_type varchar(48),              -- a key from the profile's next_steps
     completed_correctly tinyint(1) default 0,
     follow_up_required tinyint(1) default 0,
     confidence decimal(3,2),                 -- 0..1, gates whether issues cost points
@@ -436,7 +436,7 @@ create table if not exists ads_conversation_issue (
     id bigint auto_increment primary key,
     wa_id varchar(191) not null,
     policy_version varchar(16) not null,
-    type varchar(64) not null,               -- compliancePolicy.ISSUE_TYPES
+    type varchar(64) not null,               -- a key from the profile's issue_types
     severity varchar(16) not null,           -- informational|minor|moderate|major|critical
     confidence decimal(3,2) not null,
     evidence text not null,
@@ -666,4 +666,41 @@ create table if not exists app_config (
     is_secret tinyint(1) not null default 0,
     updated_by varchar(191),
     updated_at datetime default current_timestamp on update current_timestamp
+);
+
+-- ---------------------------------------------------------------------------
+-- The business profile: everything the AI needs to judge conversations in THIS
+-- company's industry — identity and verifiable facts, the sales rules, the
+-- compliance vocabulary, the lead lifecycle, the tag taxonomy, and calibration
+-- cases. Generated from the company's own website and description during setup,
+-- then reviewed by a human before it goes live.
+--
+-- One versioned JSON document per row rather than normalised tables: it is read
+-- whole on every AI call and written whole by one review form, no query joins
+-- across it, and a partially-saved enum is precisely the failure this layer
+-- exists to prevent.
+--
+-- policy_version is the value stamped on every analysed row, so a stored
+-- evaluation always says which vocabulary produced it. It is carried forward
+-- unchanged when an edit does not alter anything the model sees (renaming an
+-- Arabic label costs no re-analysis) and bumped when it does.
+create table if not exists app_business_profile (
+    version int not null,
+    status varchar(16) not null default 'draft',   -- draft | active | archived
+    profile json not null,
+    schema_version varchar(8) not null default 'bp-1',
+    policy_version varchar(16) not null default '',
+    tag_version varchar(16) not null default '',
+    policy_fingerprint char(40) not null default '',
+    tag_fingerprint char(40) not null default '',
+    source varchar(16) not null default 'seed',    -- seed | ai | human
+    generated_from json,                            -- website url, pages read, model, cost
+    calibration_result json,
+    notes text,
+    created_by varchar(191),
+    created_at datetime default current_timestamp,
+    activated_at datetime,
+    activated_by varchar(191),
+    primary key (version),
+    key ix_bp_status (status)
 );

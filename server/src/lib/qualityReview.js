@@ -10,7 +10,11 @@
 // overwrites it (see the upsert in conversationAnalysis.persistEvaluation).
 import { query } from "../db.js";
 import { countryOf } from "./phoneCountry.js";
-import { POLICY_VERSION, issueLabel, SEVERITIES } from "./compliancePolicy.js";
+import { policyVersion as activePolicyVersion, getProfile } from "./businessProfile.js";
+import { issueLabel as issueLabelFor } from "./profileDerived.js";
+import { SEVERITIES } from "./profileConstants.js";
+
+const issueLabel = (k, lang) => issueLabelFor(getProfile(), k, lang);
 import { agentLabel } from "./reportI18n.js";
 
 export const REVIEW_ACTIONS = ["confirm", "reject", "severity"];
@@ -22,7 +26,7 @@ const STATUSES = ["pending", "confirmed", "rejected"];
  */
 export async function listIssues({
   status = "pending", severity, agent, type, days = 30, limit = 50, offset = 0,
-  policyVersion = POLICY_VERSION, lang = "ar",
+  policyVersion = activePolicyVersion(), lang = "ar",
 } = {}) {
   const where = ["i.policy_version = ?"], params = [policyVersion];
   if (status && status !== "all") {
@@ -190,7 +194,7 @@ export async function reviewIssue(id, { action, severity, note, reviewer }) {
 }
 
 /** Queue counts by status and severity — the triage header. */
-export async function reviewSummary({ days = 30, policyVersion = POLICY_VERSION } = {}) {
+export async function reviewSummary({ days = 30, policyVersion = activePolicyVersion() } = {}) {
   const rows = await query(
     `select i.review_status status, i.severity, count(*) n
      from ads_conversation_issue i
@@ -215,7 +219,7 @@ export async function reviewSummary({ days = 30, policyVersion = POLICY_VERSION 
  * out would teach the wrong lesson. Pending ones are included but counted
  * separately, so a manager can see what is still unverified.
  */
-export async function trainingInsights({ days = 30, agent, policyVersion = POLICY_VERSION, lang = "ar", limit = 6 } = {}) {
+export async function trainingInsights({ days = 30, agent, policyVersion = activePolicyVersion(), lang = "ar", limit = 6 } = {}) {
   const where = ["i.policy_version = ?", "i.review_status <> 'rejected'",
     "c.created_date >= date_sub(curdate(), interval ? day)"];
   const params = [policyVersion, Number(days)];

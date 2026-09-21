@@ -12,7 +12,11 @@
 import { query } from "../db.js";
 import { gatherContactStatus } from "./contactStatus.js";
 import { dubaiYmd } from "./weeklyReports.js";
-import { POLICY_VERSION, issueLabel, isRealProgress } from "./compliancePolicy.js";
+import { policyVersion as activePolicyVersion, getProfile } from "./businessProfile.js";
+import { issueLabel as issueLabelFor, isRealProgress as isRealProgressFor } from "./profileDerived.js";
+
+const issueLabel = (k, lang) => issueLabelFor(getProfile(), k, lang);
+const isRealProgress = (k) => isRealProgressFor(getProfile(), k);
 
 const AUTOMATION_OWNER = /bot|qualifier|inquiry|counsel|[0-9a-f]{8}-[0-9a-f]{4}-/i;
 const squash = (s) => String(s || "").replace(/\s+/g, " ").trim();
@@ -41,7 +45,7 @@ export const isDrillMetric = (m) => Object.prototype.hasOwnProperty.call(DRILL_M
  */
 export async function drill({
   metric, agent = null, days = 7, limit = 300, lang = "ar",
-  now = new Date(), slaMinutes = 30, policyVersion = POLICY_VERSION,
+  now = new Date(), slaMinutes = 30, policyVersion = activePolicyVersion(),
 } = {}) {
   if (!isDrillMetric(metric)) throw new Error(`unknown drill metric: ${metric}`);
   const today = dubaiYmd(now);

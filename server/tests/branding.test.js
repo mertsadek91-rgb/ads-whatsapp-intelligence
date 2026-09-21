@@ -30,8 +30,6 @@ function sourceFiles(dir, acc = []) {
 // is generated per installation rather than swept with a regex. Listing them
 // here keeps the exemption explicit instead of silently weakening the guard.
 const PROMPT_LAYER = [
-  "src/lib/compliancePolicy.js",
-  "src/lib/conversationAnalysis.js",
   "src/lib/tagAssign.js",
   "src/lib/tagTaxonomy.js",
   "src/lib/tagRules.js",

@@ -19,6 +19,9 @@ import * as metaValidator from "../setup/validators/meta.js";
 import * as watiValidator from "../setup/validators/wati.js";
 import * as aiValidator from "../setup/validators/ai.js";
 import * as businessValidator from "../setup/validators/business.js";
+import { generateBusinessProfile } from "../lib/profileGen.js";
+import * as businessProfile from "../lib/businessProfile.js";
+import { budgetRemaining } from "../lib/deepseek.js";
 import { redirectUri } from "../setup/validators/meta.js";
 
 const router = Router();
@@ -192,6 +195,70 @@ router.post("/business/save", testThenSave("business", businessValidator.validat
       language: body.language === "en" ? "en" : "ar",
     })]);
 }));
+
+/**
+ * Read the company's website and turn it into a draft business profile: the
+ * compliance vocabulary, sales rules, lead lifecycle and tag taxonomy for THIS
+ * industry rather than a generic one.
+ *
+ * Nothing goes live here. The draft is stored for a human to review, because an
+ * AI-written regulatory fact that nobody checked is worse than no fact at all.
+ */
+router.post("/business/generate", async (req, res) => {
+  try {
+    // Never let setup eat the day's analysis budget on its way in.
+    const remaining = await budgetRemaining().catch(() => null);
+    if (remaining != null && remaining < 0.5) {
+      return res.status(400).json({
+        ok: false,
+        detail: "ميزانية الذكاء الاصطناعي اليومية شبه مستنفدة — ارفع السقف أو أعِد المحاولة غداً " +
+                "(the daily AI budget is nearly exhausted)",
+      });
+    }
+
+    const out = await generateBusinessProfile({
+      websiteUrl: req.body?.websiteUrl,
+      description: req.body?.description,
+      language: req.body?.language === "en" ? "en" : "ar",
+    });
+    await businessProfile.saveDraft(out.profile,
+      { source: "ai", generatedFrom: out.evidence, createdBy: "setup" });
+
+    res.json({
+      ok: true,
+      profile: out.profile,
+      evidence: out.evidence,
+      warnings: out.warnings,
+      // Surfaced, never applied silently: a systematically bad generation must
+      // not look like a clean one to the person approving it.
+      repairs: out.repairs,
+      errors: out.errors,
+      summary: {
+        issueTypes: out.profile.issue_types.length,
+        tags: (out.profile.tags?.categories || []).reduce((n, c) => n + (c.tags?.length || 0), 0),
+        stages: out.profile.lifecycle.stages.length,
+        facts: out.profile.identity.facts.length,
+        unverifiedFacts: out.profile.identity.facts.filter((f) => f.source === "unverified").length,
+        calibrationCases: out.profile.calibration_cases.length,
+      },
+    });
+  } catch (e) {
+    res.status(400).json({ ok: false, detail: e.message });
+  }
+});
+
+/** Save the reviewed draft, then make it the live vocabulary. */
+router.post("/business/approve", async (req, res) => {
+  try {
+    if (req.body?.profile) {
+      await businessProfile.saveDraft(req.body.profile, { source: "human", createdBy: "setup" });
+    }
+    const r = await businessProfile.activateDraft({ activatedBy: "setup" });
+    res.json({ ok: true, ...r });
+  } catch (e) {
+    res.status(400).json({ ok: false, detail: e.message });
+  }
+});
 
 // ---- 6. Finish --------------------------------------------------------------
 router.post("/finish", async (req, res) => {

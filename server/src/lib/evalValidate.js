@@ -11,8 +11,8 @@
 // from "we could not evaluate this conversation").
 import { createHash } from "crypto";
 import {
-  POLICY_VERSION, clampSeverity, isIssueType, isRiskFlag, isNextStep,
-} from "./compliancePolicy.js";
+  clampSeverity, isIssueType, isRiskFlag, isNextStep,
+} from "./profileDerived.js";
 
 /** Stable identity for an issue: its type plus its evidence, whitespace-folded.
  *  Re-analysis then upserts onto the same row, which is how a supervisor's
@@ -70,7 +70,20 @@ const CUSTOMER_SCORES = [
  * @param {object} ctx - { waId, model, promptVersion, threadIds?: Set<string> }
  * @returns {{ evaluation: object|null, issues: object[], warnings: string[] }}
  */
+/**
+ * ctx.profile is REQUIRED: the vocabulary this evaluation is checked against
+ * must be the same object the prompt was built from, or a mid-run profile
+ * change could produce a row whose prompt and validator disagree. It is passed
+ * in rather than fetched here so this stays pure and synchronous.
+ */
 export function validateEvaluation(raw, ctx = {}) {
+  const profile = ctx.profile;
+  if (!profile) {
+    // Deliberately the one throw in this file, and it is a programmer error,
+    // not bad model output: an unvalidated evaluation reaching the board is
+    // exactly what this layer exists to prevent.
+    throw new Error("validateEvaluation requires ctx.profile");
+  }
   const warnings = [];
   const push = (w) => { if (warnings.length < 20) warnings.push(w); };
 
@@ -85,7 +98,7 @@ export function validateEvaluation(raw, ctx = {}) {
 
   const evaluation = {
     wa_id: ctx.waId ?? null,
-    policy_version: POLICY_VERSION,
+    policy_version: ctx.policyVersion || "seed",
     model: str(ctx.model, 64),
     prompt_version: str(ctx.promptVersion, 32),
   };
@@ -107,7 +120,7 @@ export function validateEvaluation(raw, ctx = {}) {
 
   // A next-step type outside the journey vocabulary can't be aggregated, so it
   // is dropped rather than stored as a one-off string nobody can count.
-  const nextStepType = isNextStep(out.nextStepType) ? out.nextStepType : null;
+  const nextStepType = isNextStep(profile, out.nextStepType) ? out.nextStepType : null;
   if (out.nextStepType && !nextStepType) push(`conversationOutcome.nextStepType: unknown "${out.nextStepType}"`);
 
   evaluation.next_step_reached = bool(out.nextStepReached);
@@ -122,7 +135,7 @@ export function validateEvaluation(raw, ctx = {}) {
 
   const flags = Array.isArray(cust.customerRiskFlags) ? cust.customerRiskFlags : [];
   const keptFlags = flags.filter((f) => {
-    if (isRiskFlag(f)) return true;
+    if (isRiskFlag(profile, f)) return true;
     push(`customerRiskFlags: unknown "${f}"`);
     return false;
   });
@@ -139,7 +152,7 @@ export function validateEvaluation(raw, ctx = {}) {
     return { evaluation: null, issues: [], warnings };
   }
 
-  const issues = validateIssues(raw.issues, { push, waId: ctx.waId, threadIds: ctx.threadIds });
+  const issues = validateIssues(raw.issues, { profile, push, waId: ctx.waId, threadIds: ctx.threadIds, policyVersion: ctx.policyVersion });
 
   // A critical finding always goes to a human, whatever the model said about it.
   if (issues.some((i) => i.severity === "critical")) evaluation.requires_human_review = 1;
@@ -147,7 +160,7 @@ export function validateEvaluation(raw, ctx = {}) {
   return { evaluation, issues, warnings };
 }
 
-function validateIssues(list, { push, waId, threadIds }) {
+function validateIssues(list, { profile, push, waId, threadIds, policyVersion }) {
   if (list == null) return [];
   if (!Array.isArray(list)) { push("issues: not an array"); return []; }
 
@@ -155,7 +168,7 @@ function validateIssues(list, { push, waId, threadIds }) {
   const issues = [];
   for (const it of list.slice(0, 25)) {
     if (!it || typeof it !== "object") { push("issues: non-object entry"); continue; }
-    if (!isIssueType(it.type)) { push(`issues: unknown type "${it.type}"`); continue; }
+    if (!isIssueType(profile, it.type)) { push(`issues: unknown type "${it.type}"`); continue; }
 
     // Evidence is not optional. An issue with no quote can't be reviewed, can't
     // be shown to the employee, and can't be defended — so it can't cost points.
@@ -165,7 +178,7 @@ function validateIssues(list, { push, waId, threadIds }) {
     const confidence = clampUnit(it.confidence);
     if (confidence == null) { push(`issues[${it.type}]: dropped, no usable confidence`); continue; }
 
-    const severity = clampSeverity(it.type, it.severity);
+    const severity = clampSeverity(profile, it.type, it.severity);
     if (it.severity && severity !== it.severity) {
       push(`issues[${it.type}]: severity "${it.severity}" clamped to "${severity}"`);
     }
@@ -185,7 +198,7 @@ function validateIssues(list, { push, waId, threadIds }) {
 
     issues.push({
       wa_id: waId ?? null,
-      policy_version: POLICY_VERSION,
+      policy_version: policyVersion || "seed",
       type: it.type,
       severity,
       confidence,

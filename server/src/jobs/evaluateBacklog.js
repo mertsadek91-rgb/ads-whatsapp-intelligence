@@ -11,7 +11,7 @@
 // backlog would be the wrong trade.
 import { analyze } from "../lib/conversationAnalysis.js";
 import { pendingEvaluation, gatherQualityBoard, saveSnapshot, scanWindow } from "../lib/qualityBoard.js";
-import { POLICY_VERSION } from "../lib/compliancePolicy.js";
+import { policyVersion as activePolicyVersion } from "../lib/businessProfile.js";
 import { budgetRemaining } from "../lib/deepseek.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -32,7 +32,7 @@ export async function evaluateBacklog({
   const started = Date.now();
   const window = scanWindow({ since, until, days, now });
   const result = {
-    policy_version: POLICY_VERSION, days, window,
+    policy_version: activePolicyVersion(), days, window,
     scanned: 0, evaluated: 0, failed: 0,
     budgetStopped: false, errors: [], snapshot: null,
   };

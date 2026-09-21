@@ -14,6 +14,7 @@ export default defineConfig({
     // happen to have a real .env lying next to the repo — which made the
     // comment above false and the suite unrunnable on a fresh clone.
     // This value is a test fixture and is never a real secret.
+    setupFiles: ["tests/helpers/setup.js"],
     env: {
       SESSION_SECRET: "test-only-session-secret-0123456789abcdef0123456789abcdef",
     },

@@ -9,7 +9,17 @@
 // The hardest requirement in the spec is that a keyword is not a violation, so
 // the cases are deliberately paired: the same words in a compliant and a
 // non-compliant sentence.
-import { COMPANY_FACTS } from "./compliancePolicy.js";
+import { getProfile } from "./businessProfile.js";
+
+// The company own facts, from the profile an operator reviewed — not from a
+// constant naming one particular business.
+const fact = (key, fallback) =>
+  (getProfile().identity?.facts || []).find((f) => f.key === key)?.value || fallback;
+const COMPANY_FACTS = {
+  get regulator() { return fact("regulator", "الجهة المنظِّمة المعتمدة"); },
+  get legal_entity() { return fact("legal_entity", "الشركة"); },
+  get licence_number() { return fact("licence_number", "رقم الترخيص المعلن"); },
+};
 
 const msg = (dir, body, sender = null) => ({
   ts: "2026-07-20T09:00:00Z", dir, sender: dir === "in" ? "customer" : (sender || "Agent"), body,

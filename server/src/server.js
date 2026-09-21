@@ -12,6 +12,7 @@
 import config, { isStrongSecret } from "./config.js";
 import * as setupState from "./lib/setupState.js";
 import * as appConfig from "./lib/appConfig.js";
+import * as businessProfile from "./lib/businessProfile.js";
 import { setKeyProvider } from "./lib/secretBox.js";
 import { ensureInstallToken } from "./middleware/setupAccess.js";
 import { setActivator } from "./routes/setup.js";
@@ -44,6 +45,9 @@ export async function activateRuntime() {
   await ensureSchema();
   const hydrated = await appConfig.hydrate();
   if (hydrated.applied) console.log(`[boot] applied ${hydrated.applied} stored configuration values`);
+  // The vocabulary every AI prompt and validator is built from.
+  const profileMeta = await businessProfile.hydrate();
+  console.log(`[boot] business profile v${profileMeta.version} (${profileMeta.source}), policy ${profileMeta.policy_version}`);
 
   // Only safe once ensureSchema() has guaranteed ads_job_state exists — which
   // matters on a fresh database's very first boot.

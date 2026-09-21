@@ -8,7 +8,7 @@ import { query } from "../db.js";
 import { gatherSalesboard } from "../lib/salesboard.js";
 import { gatherQualityBoard, pendingEvaluation, scanWindow } from "../lib/qualityBoard.js";
 import { evaluateBacklog, isEvaluating } from "../jobs/evaluateBacklog.js";
-import { POLICY_VERSION } from "../lib/compliancePolicy.js";
+import { policyVersion as activePolicyVersion } from "../lib/businessProfile.js";
 import { budgetRemaining } from "../lib/deepseek.js";
 
 const router = Router();
@@ -52,7 +52,7 @@ router.get("/quality/status", async (req, res) => {
     const window = scanWindow({ since, until, days });
     const pending = await pendingEvaluation({ since, until, days, limit: 2000 });
     res.json({
-      policy_version: POLICY_VERSION, window, backfill_days: days,
+      policy_version: activePolicyVersion(), window, backfill_days: days,
       pending: pending.length, running: isEvaluating(),
       budget_remaining_usd: await budgetRemaining().catch(() => null),
     });

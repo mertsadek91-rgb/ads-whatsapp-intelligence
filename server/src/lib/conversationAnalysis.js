@@ -3,8 +3,11 @@ import * as wati from "./wati.js";
 import * as ds from "./deepseek.js";
 import * as meta from "./conversationMeta.js";
 import { normalizeAgentName } from "./agentName.js";
-import { SALES_PATTERNS, clampPatternKey, BUSINESS_RULES_AR } from "./businessKnowledge.js";
-import { COMPLIANCE_RULES_AR, POLICY_VERSION, NEXT_STEP_TYPES, ISSUE_TYPES, CUSTOMER_RISK_FLAGS } from "./compliancePolicy.js";
+import { getProfile, policyVersion } from "./businessProfile.js";
+import {
+  businessRules, complianceIntro, factsBlock, issueTypes, riskFlags,
+  salesPatterns, nextStepKeys, clampPatternKey,
+} from "./profileDerived.js";
 import { validateEvaluation } from "./evalValidate.js";
 import config from "../config.js";
 import { query } from "../db.js";
@@ -13,7 +16,7 @@ import { query } from "../db.js";
 // stored evaluation always says which prompt produced it.
 export const PROMPT_VERSION = "eval-2";
 
-const PATTERN_ENUM_HINT = SALES_PATTERNS.map((p) => p.key).join(" | ");
+const patternEnumHint = (p) => salesPatterns(p).map((x) => x.key).join(" | ");
 
 // A contact's connected WhatsApp number, so getMessages reads the right one
 // (?channelPhoneNumber). Null for legacy/unknown contacts (defaults to primary).
@@ -22,28 +25,42 @@ async function channelFor(waId) {
   return r.length ? r[0].business_channel || null : null;
 }
 
-const SYSTEM = `أنت محلّل جودة ومبيعات خبير لدى شركة وساطة تداول (فوركس/عقود فروقات) اسمها "IST Markets".
+/**
+ * The system prompt, built per call from the live business profile.
+ *
+ * It used to be a module-level template literal naming one company and one
+ * industry, which meant the evaluator judged a clinic by a forex broker's
+ * standards. What stays hardcoded here is the part that is genuinely universal
+ * to WhatsApp lead flows rather than to any industry: a customer replying to an
+ * automation is a weak signal, value only appears once a human answers, and a
+ * customer who engaged and got no human reply is a MISSED OPPORTUNITY rather
+ * than a hot lead. Everything domain-specific comes from the profile.
+ */
+function systemPrompt(p) {
+  const company = p.identity?.company_name || "الشركة";
+  const facts = factsBlock(p, "ar");
+  return `أنت محلّل جودة ومبيعات خبير لدى "${company}".
+نشاط الشركة: ${p.identity?.what_we_sell || ""}
 تُحلّل محادثات واتساب بين موظفي المبيعات والعملاء المحتملين (Leads) باللغة العربية.
 هدفك: تقييم المحادثة والعميل، وتقييم أداء الموظف بدقّة ومهنية وحياد.
 
 قاعدة جوهرية في التقييم:
 - رسائل "الرد الآلي (بوت)" ومجرّد رد العميل عليها (اختيار اللغة، الضغط على أزرار، تحية) **إشارة ضعيفة جداً** ولا تدل على اهتمام حقيقي.
-- الاهتمام الحقيقي وقيمة المحادثة يظهران **فقط بعد تدخّل موظف مبيعات بشري** ومعرفة تفاصيل العميل (هدفه، رأس ماله، نيّة الإيداع، نوع الحساب).
+- الاهتمام الحقيقي وقيمة المحادثة يظهران **فقط بعد تدخّل موظف مبيعات بشري** ومعرفة تفاصيل العميل وحاجته الحقيقية.
 - إذا كانت المحادثة بوت فقط أو ردّ العميل على البوت دون متابعة بشرية حقيقية → اجعل "conversation_score" منخفضاً (≤ 40) مهما كان عدد الرسائل، وأضِف وسماً "لا متابعة بشرية".
 - العميل الذي تفاعل ولم يصله رد بشري = **فرصة ضائعة** (سلبي يستوجب إعادة تواصل)، وليس عميلاً ساخناً.
-- ارفع الدرجة فقط عندما يجري حوار بشري فعلي ويُبدي العميل اهتماماً أو يطلب خطوات (فتح حساب/إيداع).
-
-انتبه ل"الإقناع الخاطئ" وهو ممنوع نظامياً: الوعد بأرباح مضمونة، إخفاء/التقليل من المخاطر، الضغط أو الاستعجال المصطنع، ضمان عدم الخسارة، أو معلومات مضلّلة.
+- ارفع الدرجة فقط عندما يجري حوار بشري فعلي ويُبدي العميل اهتماماً أو يطلب خطوة تالية واضحة.
 
 قيّم أيضاً افتتاح المحادثة ونقطة الانقطاع (إن وُجدت):
-- افتتاح المحادثة = أول رد فعلي من موظف بشري (وليس البوت) على أول رسالة عميل. قيّمه weak إن قفز لطلب التسجيل/الرابط دون أي شرح لنيّة العميل أو لقيمة التداول، أو كان رداً عاماً غير مخصّص. قيّمه adequate/strong إن راعى نيّة العميل وشرح قبل الطلب.
+- افتتاح المحادثة = أول رد فعلي من موظف بشري (وليس البوت) على أول رسالة عميل. قيّمه weak إن قفز لطلب خطوة تالية دون فهم حاجة العميل أو شرح ما يناسبه، أو كان رداً عاماً غير مخصّص. قيّمه adequate/strong إن راعى نيّة العميل وشرح قبل الطلب.
 - نقطة الانقطاع = إن توقّف العميل عن الرد بعد رسالة أظهر فيها اهتماماً أو سؤالاً حقيقياً، استخرج آخر رسالة له قبل التوقف وسبب الانقطاع المحتمل من سياق الحوار.
-- عند رصد ضعف في الافتتاح أو سبب انقطاع، صنّفه ضمن هذه الفئات الثابتة فقط: ${PATTERN_ENUM_HINT}.
-${BUSINESS_RULES_AR}
-${COMPLIANCE_RULES_AR}
+- عند رصد ضعف في الافتتاح أو سبب انقطاع، صنّفه ضمن هذه الفئات الثابتة فقط: ${patternEnumHint(p)}.
+${facts ? facts + "\n" : ""}${businessRules(p, "ar")}
+${complianceIntro(p, "ar")}
 أعِد ردك بصيغة JSON فقط مطابقاً للمخطط، وبقيم نصية عربية مختصرة وواضحة.`;
+}
 
-function schemaHint() {
+function schemaHint(p) {
   return `أعِد JSON بهذا الشكل بالضبط:
 {
  "conversation_score": رقم 0-100 (جودة المحادثة واحتمال التحويل),
@@ -70,14 +87,14 @@ function schemaHint() {
    "improvements": ["نصائح للتحسين"],
    "opening_quality": "weak" أو "adequate" أو "strong",
    "opening_excerpt": "اقتباس الرد الأول الفعلي للموظف البشري، أو null إن لا يوجد رد بشري",
-   "opening_pattern_key": "${PATTERN_ENUM_HINT} — فقط إن كانت opening_quality=weak، وإلا null",
+   "opening_pattern_key": "${patternEnumHint(p)} — فقط إن كانت opening_quality=weak، وإلا null",
    "dropout_detected": true أو false,
    "dropout_point_excerpt": "اقتباس آخر رسالة عميل قبل توقّفه عن الرد، أو null إن dropout_detected=false",
-   "dropout_pattern_key": "${PATTERN_ENUM_HINT} — فقط إن dropout_detected=true، وإلا null",
+   "dropout_pattern_key": "${patternEnumHint(p)} — فقط إن dropout_detected=true، وإلا null",
    "smart_reply_example": "رد بديل مُعاد كتابته بالعربية، دافئ ومطابق لقواعد العمل أعلاه، أو null إن لم يوجد ضعف افتتاح أو انقطاع"
  },
  "flags": ["وسوم قصيرة لأي مشكلات مثل: وعود مضمونة، تجاهل المخاطر، بطء متابعة"],
-${EVAL_SCHEMA_AR}
+${evalSchemaAr(p)}
 }`;
 }
 
@@ -86,7 +103,7 @@ ${EVAL_SCHEMA_AR}
 // it twice would double the cost for no gain in accuracy. It comes AFTER the
 // interest fields on purpose — those are what the existing board depends on, so
 // they stay at the front of the schema where the model is most reliable.
-const EVAL_SCHEMA_AR = ` "employeeAnalysis": {
+const evalSchemaAr = (p) => ` "employeeAnalysis": {
    "// مهم": "أي درجة لا ينطبق موضوعها على هذه المحادثة أعِدها null لا 0. الصفر يعني «أداء سيئ»، وnull تعني «لا مجال للتقييم». مثال: إن لم يبدِ العميل أي اعتراض فـobjectionHandlingScore = null.",
    "persuasionQualityScore": رقم 0-100 لجودة الإقناع عموماً,
    "complianceAccuracyScore": رقم 0-100 للالتزام والدقّة (ابدأ من 100 واخصم على مخالفات موثّقة فقط),
@@ -100,17 +117,17 @@ const EVAL_SCHEMA_AR = ` "employeeAnalysis": {
    "intentScore": رقم 0-100 لقوة نيّة العميل,
    "qualificationScore": رقم 0-100 لتأهّل العميل (بلد مدعوم، رقم صحيح، حاجة تناسب الخدمة، ليس سبام),
    "engagementScore": رقم 0-100 لتفاعل العميل,
-   "customerRiskFlags": ["فقط من هذه القائمة: ${CUSTOMER_RISK_FLAGS.map((f) => f.key).join(" | ")}"]
+   "customerRiskFlags": ["فقط من هذه القائمة: ${riskFlags(p).map((f) => f.key).join(" | ")}"]
  },
  "conversationOutcome": {
    "nextStepReached": true أو false,
-   "nextStepType": "فقط من هذه القائمة أو null: ${NEXT_STEP_TYPES.join(" | ")}",
+   "nextStepType": "فقط من هذه القائمة أو null: ${nextStepKeys(p).join(" | ")}",
    "conversationCompletedCorrectly": true إن أُجيب سؤال العميل الأساسي وصُنّفت حالته ولا توجد رسالة عميل بلا رد,
    "followUpRequired": true أو false
  },
  "issues": [
    {
-     "type": "فقط من هذه القائمة: ${ISSUE_TYPES.map((t) => t.key).join(" | ")}",
+     "type": "فقط من هذه القائمة: ${issueTypes(p).map((t) => t.key).join(" | ")}",
      "severity": "informational | minor | moderate | major | critical",
      "confidence": رقم بين 0 و1,
      "evidence": "اقتباس حرفي من رسالة الموظف — إن لم يوجد فلا تسجّل المخالفة",
@@ -166,8 +183,12 @@ export async function analyze(waId, thread = null) {
   const transcript = buildTranscript(thread);
   const followUp = computeFollowUp(thread);
 
-  const user = `${schemaHint()}\n\n=== نص المحادثة ===\n${transcript}`;
-  const a = await ds.chatJSON(SYSTEM, user, waId);
+  // Read the profile ONCE and thread the same object into both the prompt and
+  // the validator, so an activation mid-run cannot produce a row whose prompt
+  // and validator disagree about the vocabulary.
+  const profile = getProfile();
+  const user = `${schemaHint(profile)}\n\n=== نص المحادثة ===\n${transcript}`;
+  const a = await ds.chatJSON(systemPrompt(profile), user, waId);
 
   const agent = a.agent || {};
   // Clamp the two pattern-classification fields to the fixed enum before
@@ -176,7 +197,7 @@ export async function analyze(waId, thread = null) {
   // so that drift stays visible instead of silently vanishing into counts.
   for (const f of ["opening_pattern_key", "dropout_pattern_key"]) {
     const raw = agent[f];
-    const clamped = clampPatternKey(raw);
+    const clamped = clampPatternKey(profile, raw);
     if (raw != null && clamped === "other" && raw !== "other") {
       console.warn(`[conversationAnalysis] ${waId}: ${f} off-schema value coerced to "other":`, raw);
     }
@@ -260,6 +281,7 @@ export async function persistEvaluation(waId, raw, thread = []) {
   const threadIds = new Set(thread.map((m) => m && m.id).filter(Boolean));
   const { evaluation, issues, warnings } = validateEvaluation(raw, {
     waId, model: config.deepseek.model, promptVersion: PROMPT_VERSION,
+    profile, policyVersion: policyVersion(),
     threadIds: threadIds.size ? threadIds : null,
   });
   if (warnings.length) console.warn(`[conversationAnalysis] ${waId}: eval warnings:`, warnings.join("; "));
@@ -334,10 +356,12 @@ export async function persistEvaluation(waId, raw, thread = []) {
  */
 export async function evaluateThread(thread, { waId = "calibration" } = {}) {
   if (!Array.isArray(thread) || !thread.length) throw new Error("thread is required");
-  const user = `${schemaHint()}\n\n=== نص المحادثة ===\n${buildTranscript(thread)}`;
-  const raw = await ds.chatJSON(SYSTEM, user, waId);
+  const profile = getProfile();
+  const user = `${schemaHint(profile)}\n\n=== نص المحادثة ===\n${buildTranscript(thread)}`;
+  const raw = await ds.chatJSON(systemPrompt(profile), user, waId);
   const { evaluation, issues, warnings } = validateEvaluation(raw, {
     waId, model: config.deepseek.model, promptVersion: PROMPT_VERSION,
+    profile, policyVersion: policyVersion(),
   });
   return { evaluation, issues, warnings, raw };
 }

@@ -15,12 +15,13 @@ vi.mock("mysql2/promise", () => ({
   default: { createPool: () => ({ query: queryMock }) },
 }));
 
-// db.js now refuses to build a pool against an unconfigured database rather
-// than dialling a fabricated root@127.0.0.1, so this unit test has to say which
-// database it is pretending to talk to.
-vi.mock("../src/config.js", () => ({
-  default: { mysql: { host: "db.test", port: 3306, user: "u", password: "p", database: "testdb" } },
-}));
+// db.js refuses to build a pool against an unconfigured database rather than
+// dialling a fabricated root@127.0.0.1, so this unit test has to say which
+// database it is pretending to talk to. config is a mutable runtime object now
+// — that is the whole point of the config refactor — so setting it directly is
+// the idiomatic way to do that, and needs no module mock.
+import config from "../src/config.js";
+config.mysql = { host: "db.test", port: 3306, user: "u", password: "p", database: "testdb" };
 
 const { upsert } = await import("../src/db.js");
 

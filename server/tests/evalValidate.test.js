@@ -3,10 +3,25 @@
 // a string, or nothing at all — and none of it may become a number an employee
 // is judged by. Every case below is one the validator has to survive silently.
 import { describe, it, expect } from "vitest";
-import { validateEvaluation, reconciledCompliance, issueHash } from "../src/lib/evalValidate.js";
+import { validateEvaluation as rawValidate, reconciledCompliance, issueHash } from "../src/lib/evalValidate.js";
 import {
-  POLICY_VERSION, clampSeverity, issueLabel, isRealProgress, ISSUE_TYPES,
-} from "../src/lib/compliancePolicy.js";
+  clampSeverity as clampSeverityFor, issueLabel as issueLabelFor,
+  isRealProgress as isRealProgressFor, issueTypes,
+} from "../src/lib/profileDerived.js";
+import { validateProfile } from "../src/lib/profileSchema.js";
+import { BROKERAGE_PROFILE } from "../src/profiles/brokerage.js";
+
+// The vocabulary these assertions were written against is now data, not a
+// constant. Binding it once here keeps every case below byte-identical, which
+// is the point: the refactor changed WHERE the enum comes from, not what it is.
+const PROFILE = validateProfile(BROKERAGE_PROFILE).profile;
+const POLICY_VERSION = "v1.1";
+const validateEvaluation = (raw, ctx = {}) =>
+  rawValidate(raw, { profile: PROFILE, policyVersion: POLICY_VERSION, ...ctx });
+const clampSeverity = (t, s) => clampSeverityFor(PROFILE, t, s);
+const issueLabel = (k, lang) => issueLabelFor(PROFILE, k, lang);
+const isRealProgress = (k) => isRealProgressFor(PROFILE, k);
+const ISSUE_TYPES = issueTypes(PROFILE);
 
 const good = () => ({
   employeeAnalysis: {

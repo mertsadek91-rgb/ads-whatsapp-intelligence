@@ -7,7 +7,9 @@ import { langOf } from "../lib/reportI18n.js";
 import {
   listIssues, issueContext, reviewIssue, reviewSummary, trainingInsights,
 } from "../lib/qualityReview.js";
-import { ISSUE_TYPES, SEVERITIES, COMPANY_FACTS, POLICY_VERSION } from "../lib/compliancePolicy.js";
+import { policyVersion as activePolicyVersion, getProfile } from "../lib/businessProfile.js";
+import { issueTypes } from "../lib/profileDerived.js";
+import { SEVERITIES } from "../lib/profileConstants.js";
 import { readCalibration, saveCalibration, gatherQualityBoard } from "../lib/qualityBoard.js";
 import { drill } from "../lib/qualityDrill.js";
 import { DEFAULT_WEIGHTS, DEFAULT_THRESHOLDS } from "../lib/qualityScore.js";
@@ -18,11 +20,11 @@ const router = Router();
 router.get("/summary", wrap(async (req, res) => {
   const lang = langOf(req);
   res.json({
-    policy_version: POLICY_VERSION,
+    policy_version: activePolicyVersion(),
     ...(await reviewSummary({ days: Number(req.query.days) || 30 })),
     severities: SEVERITIES,
-    types: ISSUE_TYPES.map((t) => ({ key: t.key, label: lang === "en" ? t.en : t.ar, default_severity: t.default_severity })),
-    company: COMPANY_FACTS,
+    types: issueTypes(getProfile()).map((t) => ({ key: t.key, label: lang === "en" ? t.en : t.ar, default_severity: t.default_severity })),
+    company: (getProfile().identity.facts || []),
   });
 }));
 

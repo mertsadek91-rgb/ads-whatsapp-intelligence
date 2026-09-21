@@ -12,7 +12,7 @@
 import { evaluateBacklog } from "../src/jobs/evaluateBacklog.js";
 import { pendingEvaluation, scanWindow } from "../src/lib/qualityBoard.js";
 import { budgetRemaining } from "../src/lib/deepseek.js";
-import { POLICY_VERSION } from "../src/lib/compliancePolicy.js";
+import { policyVersion } from "../src/lib/businessProfile.js";
 import config from "../src/config.js";
 
 // Either two dates (a specific period) or days + cap.
@@ -28,7 +28,7 @@ const pending = await pendingEvaluation({ since, until, days, limit: cap });
 const budget0 = await budgetRemaining();
 
 const w = scanWindow({ since, until, days });
-console.log(`backfill · model=${config.deepseek.model} · policy=${POLICY_VERSION} · window=${w.since} → ${w.until}`);
+console.log(`backfill · model=${config.deepseek.model} · policy=${policyVersion()} · window=${w.since} → ${w.until}`);
 console.log(`pending=${pending.length} · budget=${budget0 == null ? "no guard" : "$" + budget0.toFixed(2)}`);
 console.log(`estimate ~${Math.round((pending.length * 23) / 60)} min · ~$${(pending.length * 0.0037).toFixed(2)}\n`);
 

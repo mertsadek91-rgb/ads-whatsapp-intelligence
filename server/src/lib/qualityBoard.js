@@ -13,7 +13,10 @@
 import { query } from "../db.js";
 import { gatherContactStatus, rollup as contactRollup } from "./contactStatus.js";
 import { dubaiYmd } from "./weeklyReports.js";
-import { POLICY_VERSION, isRealProgress } from "./compliancePolicy.js";
+import { policyVersion as activePolicyVersion, getProfile } from "./businessProfile.js";
+import { isRealProgress as isRealProgressFor } from "./profileDerived.js";
+
+const isRealProgress = (k) => isRealProgressFor(getProfile(), k);
 import {
   DEFAULT_THRESHOLDS, DEFAULT_WEIGHTS, resolveThresholds, resolveWeights,
   productivityScore, persuasionScore, complianceScore,
@@ -192,7 +195,7 @@ async function dailySeries(leads, since, days, windowDays) {
  * @returns per-employee scored + ranked rows, team totals, and the window
  */
 export async function gatherQualityBoard({
-  now = new Date(), days = 7, policyVersion = POLICY_VERSION, thresholds = null, weights = null,
+  now = new Date(), days = 7, policyVersion = activePolicyVersion(), thresholds = null, weights = null,
 } = {}) {
   // An explicit override (tests, a what-if preview) wins; otherwise the stored
   // calibration; otherwise the defaults.
@@ -503,7 +506,7 @@ export function scanWindow({ since = null, until = null, days = 30, now = new Da
 
 export async function pendingEvaluation({
   days = 30, since = null, until = null, limit = 200,
-  policyVersion = POLICY_VERSION, now = new Date(),
+  policyVersion = activePolicyVersion(), now = new Date(),
 } = {}) {
   const w = scanWindow({ since, until, days, now });
   const rows = await query(
