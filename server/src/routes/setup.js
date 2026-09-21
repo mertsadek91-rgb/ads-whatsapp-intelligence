@@ -68,6 +68,15 @@ router.post("/claim", (req, res) => {
       error: "setup_in_progress", claimedFrom: r.claim.ip, claimedAgoMs: Date.now() - r.claim.at });
   }
   res.cookie("setup_claim", r.claim.id, { httpOnly: true, sameSite: "lax" });
+  // Hand the caller the install token as an httpOnly cookie.
+  //
+  // Without this, claiming locked out the very operator who just claimed:
+  // requireSetupAccess admits a local request only while nothing is claimed, so
+  // the first successful claim made every following step answer 401 for a
+  // browser on the same machine. Issuing the token at the moment of claiming
+  // keeps the token the single authority, and means the operator never has to
+  // copy it out of the server log when installing locally.
+  res.cookie("setup_claim_token", ensureInstallToken(), { httpOnly: true, sameSite: "lax" });
   res.json({ ok: true, claimId: r.claim.id });
 });
 

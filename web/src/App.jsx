@@ -34,15 +34,35 @@ const SalesScreen = lazy(() => import("./pages/SalesScreen.jsx"));
 const QualityScreen = lazy(() => import("./pages/QualityScreen.jsx"));
 const Settings = lazy(() => import("./pages/Settings.jsx"));
 const Users = lazy(() => import("./pages/Users.jsx"));
+const SetupApp = lazy(() => import("./setup/SetupApp.jsx"));
 
 function AppInner() {
   const { t } = useI18n();
   const [me, setMe] = useState(null); // null = loading
+  const [installed, setInstalled] = useState(null);
   const authed = me?.authed ?? null;
 
+  // Checked BEFORE the kiosk bypass and before /auth/me: on an uninstalled
+  // instance every API call answers 503, so a wall display pointed here would
+  // otherwise render a permanently broken board instead of saying why.
   useEffect(() => {
-    api.me().then(setMe).catch(() => setMe({ authed: false }));
+    fetch("/api/setup/status")
+      .then((r) => r.json())
+      .then((d) => setInstalled(d.installed !== false))
+      .catch(() => setInstalled(true));   // assume installed if we cannot tell
   }, []);
+
+  useEffect(() => {
+    if (installed !== true) return;
+    api.me().then(setMe).catch(() => setMe({ authed: false }));
+  }, [installed]);
+
+  if (installed === null) return <div style={{ padding: 40 }}>{t("جارٍ التحميل…")}</div>;
+  if (installed === false) {
+    return <Suspense fallback={<div style={{ padding: 40 }}>{t("جارٍ التحميل…")}</div>}>
+      <SetupApp />
+    </Suspense>;
+  }
 
   // Public wall-display (kiosk) — no login, token-gated by the page itself.
   // Checked before the auth gate so a TV can open it without a session.
