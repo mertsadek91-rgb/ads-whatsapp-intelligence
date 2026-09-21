@@ -35,6 +35,8 @@ export const setupApi = {
   save: (step, body) => req("POST", `/${step}/save`, body),
   createDatabase: (body) => req("POST", "/db/create-database", body),
   migrate: () => req("POST", "/db/migrate", {}),
+  generateProfile: (body) => req("POST", "/business/generate", body),
+  approveProfile: (profile) => req("POST", "/business/approve", { profile }),
   finish: (body) => req("POST", "/finish", body),
 };
 

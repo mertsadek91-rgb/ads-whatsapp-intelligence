@@ -507,3 +507,36 @@ code{background:var(--surface-2);border:1px solid var(--border);border-radius:5p
   .setup-steps li{padding:0}
   .setup-main{padding:24px 18px}
 }
+
+/* ---- Business-profile review (inside the wizard) ------------------------- */
+.setup-review{margin-block:22px}
+.setup-review h3{margin:0 0 6px;font-size:17px;color:var(--ink)}
+.setup-review-section{border:1px solid var(--border);border-radius:8px;margin-block-end:10px;background:var(--canvas)}
+.setup-review-head{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  inline-size:100%;padding:12px 14px;background:none;border:none;font:inherit;font-weight:600;
+  color:var(--ink);cursor:pointer;text-align:start}
+.setup-review-count{font-size:12.5px;font-weight:500;color:var(--ink-muted)}
+.setup-review-body{padding:0 14px 14px;font-size:13.5px;color:var(--ink-body);line-height:1.8}
+.setup-review-body label{display:block;font-weight:600;font-size:12.5px;margin:10px 0 4px;color:var(--ink)}
+.setup-review-body input,.setup-review-body select,.setup-review-body textarea{
+  inline-size:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font:inherit}
+.setup-review-body ul{margin:0;padding-inline-start:20px}
+
+.setup-fact{border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-block-end:10px}
+.setup-fact.unverified{border-color:#FDE68A;background:#FFFBEB}
+.setup-fact-row{display:flex;align-items:center;gap:8px;margin-block-end:6px}
+.setup-fact-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-block-start:8px}
+.setup-fact-actions label{display:flex;align-items:center;gap:6px;margin:0;font-weight:500}
+.setup-fact-actions input[type=checkbox]{inline-size:auto}
+.setup-evidence{margin:6px 0 0;font-size:12.5px;color:var(--ink-muted);font-style:italic}
+
+.setup-badge{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-body)}
+.setup-badge.website{background:var(--success-tint);color:#166534}
+.setup-badge.unverified{background:var(--warning-tint);color:#92400E}
+.setup-badge.core{background:var(--primary-tint);color:var(--primary);margin-inline-start:6px}
+.setup-badge.ai{background:var(--primary-tint);color:var(--primary)}
+.setup-badge.rule{background:var(--info-tint);color:#0E7490}
+.setup-badge.external{background:var(--surface-2);color:var(--ink-muted)}
+.setup-key{font-size:11px;color:var(--ink-muted);font-family:ui-monospace,monospace}
+.setup-tagcat{display:flex;align-items:center;gap:10px;padding:7px 0;border-block-end:1px solid var(--surface-1)}
+.setup-tagcat strong{flex:1}

@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import setupApi, { setInstallToken, setClaimId } from "./setupApi.js";
 import { Field, TestResult, StepActions } from "./SetupUI.jsx";
+import ProfileReview from "./ProfileReview.jsx";
 
 const STEP_TITLES = {
   db: ["قاعدة البيانات", "Database"],
@@ -31,6 +32,8 @@ export default function SetupApp() {
   const [tested, setTested] = useState({});
   const [done, setDone] = useState([]);
   const [tokenPrompt, setTokenPrompt] = useState(false);
+  const [gen, setGen] = useState(null);      // the generated profile under review
+  const [genBusy, setGenBusy] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
   const [form, setForm] = useState({
     db: { host: "127.0.0.1", port: 3306, user: "", password: "", database: "" },
@@ -123,6 +126,31 @@ export default function SetupApp() {
       const next = ORDER[ORDER.indexOf(step) + 1];
       if (next) { setStep(next); setResult(null); }
     } finally { setBusy(false); }
+  }
+
+  /**
+   * Read the company's site and build the vocabulary the evaluator will use.
+   * Slow (three AI calls), so the button says so rather than appearing hung.
+   */
+  async function generateProfile() {
+    setGenBusy(true); setResult(null);
+    try {
+      if (!(await claimIfNeeded())) return;
+      const { data, ok } = await setupApi.generateProfile(form.business);
+      if (!ok) { setResult({ ok: false, ar: data.detail, en: data.detail }); return; }
+      setGen(data);
+    } finally { setGenBusy(false); }
+  }
+
+  /** Approve the reviewed draft and make it the live vocabulary. */
+  async function approveProfile() {
+    setGenBusy(true); setResult(null);
+    try {
+      const { data, ok } = await setupApi.approveProfile(gen.profile);
+      if (!ok) { setResult({ ok: false, ar: data.detail, en: data.detail }); return; }
+      setTested((x) => ({ ...x, business: true }));
+      setResult({ ok: true, warnings: [t("تم تفعيل ملف نشاطك", "Your business profile is live")] });
+    } finally { setGenBusy(false); }
   }
 
   async function createDb() {
@@ -291,7 +319,7 @@ export default function SetupApp() {
               onChange={(v) => set("business", "websiteUrl", v)} placeholder="https://example.com" />
             <Field field="business.description" lang={lang} value={form.business.description}
               onChange={(v) => set("business", "description", v)} textarea />
-            {result?.ok && (
+            {result?.ok && result.details && (
               <p className="setup-note">
                 {result.details.readable
                   ? t(`قرأنا ${result.details.pagesRead} صفحة من موقعك.`,
@@ -299,6 +327,41 @@ export default function SetupApp() {
                   : t("تعذّرت قراءة الموقع — سنعتمد على وصفك وحده.",
                        "Could not read the site — we will rely on your description alone.")}
               </p>
+            )}
+
+            {!gen && (
+              <div className="setup-actions">
+                <button type="button" className="btn primary" disabled={genBusy || !tested.business}
+                  onClick={generateProfile}>
+                  {genBusy
+                    ? t("جارٍ القراءة والتحليل… قد يستغرق دقيقة", "Reading and analysing… this can take a minute")
+                    : t("حلّل نشاطي وابنِ ملف التقييم", "Analyse my business and build the profile")}
+                </button>
+                {!tested.business && (
+                  <span className="setup-gate-note">
+                    {t("اختبر الاتصال بالموقع أولاً", "Check the website first")}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {gen && (
+              <>
+                <ProfileReview
+                  profile={gen.profile} summary={gen.summary}
+                  warnings={gen.warnings} repairs={gen.repairs} lang={lang}
+                  onChange={(p) => setGen((g) => ({ ...g, profile: p }))} />
+                <div className="setup-actions">
+                  <button type="button" className="btn ghost" disabled={genBusy}
+                    onClick={() => setGen(null)}>
+                    {t("أعِد التحليل من جديد", "Analyse again")}
+                  </button>
+                  <button type="button" className="btn primary" disabled={genBusy}
+                    onClick={approveProfile}>
+                    {t("أوافق — فعّل هذا الملف", "Approve and activate")}
+                  </button>
+                </div>
+              </>
             )}
           </>
         )}
