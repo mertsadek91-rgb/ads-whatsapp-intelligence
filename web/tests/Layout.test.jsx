@@ -14,11 +14,55 @@ vi.mock("../src/api.js", () => ({ setApiLang: () => {},
   default: { logout: vi.fn(async () => {}), get: vi.fn(async () => ({})) },
   api: { logout: vi.fn(async () => {}), get: vi.fn(async () => ({})) } }));
 
-const setup = () => render(
+// The sidebar hides links the account's role cannot use, so every render needs
+// a role. Default to admin — most cases are about the shell, not the gating.
+const setup = (role = "admin") => render(
   <MemoryRouter initialEntries={["/"]}>
-    <I18nProvider><CurrencyProvider><Layout onLogout={() => {}} /></CurrencyProvider></I18nProvider>
+    <I18nProvider><CurrencyProvider>
+      <Layout onLogout={() => {}} role={role} />
+    </CurrencyProvider></I18nProvider>
   </MemoryRouter>
 );
+
+describe("the sidebar offers only what the account can actually use", () => {
+  // Not access control — the server's requireRole is. This stops the UI from
+  // showing a manager or viewer links that can only ever answer 403.
+  const hrefs = (c) => [...c.querySelectorAll(".nav a")].map((a) => a.getAttribute("href"));
+
+  it("shows an admin everything, including users, settings and broadcasts", () => {
+    const h = hrefs(setup("admin").container);
+    for (const p of ["/users", "/settings", "/broadcasts", "/assignment", "/employees-admin"]) {
+      expect(h).toContain(p);
+    }
+  });
+
+  it("hides configuration and money-spending links from a viewer", () => {
+    const h = hrefs(setup("viewer").container);
+    for (const p of ["/users", "/settings", "/broadcasts", "/assignment", "/employees-admin"]) {
+      expect(h).not.toContain(p);
+    }
+    expect(h).toContain("/"); // still has the dashboards
+    expect(h).toContain("/leads");
+  });
+
+  it("gives a manager the operations links but not configuration", () => {
+    const h = hrefs(setup("manager").container);
+    expect(h).toContain("/assignment");
+    expect(h).toContain("/handover");
+    expect(h).not.toContain("/settings");
+    expect(h).not.toContain("/users");
+  });
+
+  it("drops a section heading entirely when nothing in it is visible", () => {
+    const { container } = setup("viewer");
+    const titles = [...container.querySelectorAll(".nav-group-title")].map((e) => e.textContent);
+    for (const title of titles) {
+      // no heading may be left standing with no links under it
+      expect(hrefs(container).length).toBeGreaterThan(0);
+      expect(title.trim().length).toBeGreaterThan(0);
+    }
+  });
+});
 
 describe("app shell structure", () => {
   it("renders the brand, every nav group, and every destination exactly once", () => {

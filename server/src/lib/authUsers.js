@@ -1,7 +1,5 @@
-// Minimum-viable user auth (BUG-002/SEC-2 fix). Real bcrypt-hashed accounts +
-// login attempt logging + lockout, replacing the single shared APP_PASSWORD.
-// Full RBAC (roles/permissions matrix) is planning/16 — a later phase; this
-// module intentionally stays small: accounts + login/lockout only.
+// Per-user auth: bcrypt-hashed accounts, login logging, lockout, and the small
+// role vocabulary the route gate in middleware/auth.js enforces.
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { query } from "../db.js";
@@ -12,6 +10,31 @@ export const LOCKOUT_THRESHOLD = 10;
 
 const normEmail = (e) => String(e || "").trim().toLowerCase();
 
+/**
+ * Login roles, most privileged first. Deliberately three, not a permission
+ * matrix: the only distinctions the routes actually make today are "can change
+ * how the system is configured", "can act on leads", and "can look".
+ *   admin   — everything, including settings, users, and broadcasts (spends money)
+ *   manager — day-to-day operations: lead assignment and handover
+ *   viewer  — read-only dashboards and reports
+ * Existing rows default to "admin" (the column default since the table was
+ * created), so introducing roles does not lock anyone out.
+ */
+export const ROLES = ["admin", "manager", "viewer"];
+export const isRole = (r) => ROLES.includes(r);
+export const clampRole = (r) => (isRole(r) ? r : "viewer");
+
+// Long enough to matter, short enough that nobody writes it on a sticky note.
+export const MIN_PASSWORD_LEN = 10;
+
+/** Throws a message suitable for returning to the caller. */
+export function assertPasswordStrength(pw) {
+  const s = String(pw || "");
+  if (s.length < MIN_PASSWORD_LEN) {
+    throw new Error(`كلمة المرور يجب أن تكون ${MIN_PASSWORD_LEN} أحرف على الأقل`);
+  }
+}
+
 export async function findByEmail(email) {
   const rows = await query("select * from ads_users where email = ? limit 1", [normEmail(email)]);
   return rows[0] || null;
@@ -21,6 +44,58 @@ export async function createUser(email, plainPassword, role = "admin") {
   const hash = await bcrypt.hash(plainPassword, BCRYPT_ROUNDS);
   await query("insert into ads_users (email, password_hash, role) values (?, ?, ?)", [normEmail(email), hash, role]);
   return findByEmail(email);
+}
+
+/** Never returns password_hash — this feeds an API response. */
+export async function listUsers() {
+  return query(
+    "select id, email, role, status, created_at, last_login_at from ads_users order by role, email");
+}
+
+export async function findById(id) {
+  const rows = await query("select * from ads_users where id = ? limit 1", [Number(id)]);
+  return rows[0] || null;
+}
+
+export async function setPassword(userId, plainPassword) {
+  assertPasswordStrength(plainPassword);
+  const hash = await bcrypt.hash(plainPassword, BCRYPT_ROUNDS);
+  await query("update ads_users set password_hash = ? where id = ?", [hash, Number(userId)]);
+  return { ok: true };
+}
+
+export async function updateUser(userId, { role, status } = {}) {
+  const sets = [], params = [];
+  if (role != null) { sets.push("role = ?"); params.push(clampRole(role)); }
+  if (status != null) { sets.push("status = ?"); params.push(status === "disabled" ? "disabled" : "active"); }
+  if (!sets.length) return { ok: false, reason: "nothing-to-update" };
+  params.push(Number(userId));
+  await query(`update ads_users set ${sets.join(", ")} where id = ?`, params);
+  return { ok: true };
+}
+
+export async function deleteUser(userId) {
+  await query("delete from ads_users where id = ?", [Number(userId)]);
+  return { ok: true };
+}
+
+/**
+ * Count of accounts that can still administer the system. Every destructive
+ * change to an admin account is checked against this first: demoting,
+ * disabling or deleting the last one would leave an install nobody can
+ * configure, recoverable only by direct SQL.
+ */
+export async function activeAdminCount() {
+  const [{ n }] = await query(
+    "select count(*) n from ads_users where role = admin and status = active");
+  return Number(n || 0);
+}
+
+/** True when changing/removing this user would strand the install. */
+export async function isLastActiveAdmin(userId) {
+  const u = await findById(userId);
+  if (!u || u.role !== "admin" || u.status !== "active") return false;
+  return (await activeAdminCount()) <= 1;
 }
 
 export async function verifyPassword(user, plainPassword) {
@@ -58,13 +133,15 @@ export async function recentFailedAttempts(email) {
 export async function ensureBootstrapAdmin() {
   const [{ n }] = await query("select count(*) n from ads_users");
   if (n > 0) return null;
-  const email = "admin@istmarkets.local";
+  const email = normEmail(process.env.BOOTSTRAP_ADMIN_EMAIL || "admin@localhost");
   const password = crypto.randomBytes(9).toString("base64url"); // ~12 url-safe chars
   await createUser(email, password, "admin");
   return { email, password };
 }
 
 export default {
-  findByEmail, createUser, verifyPassword, touchLastLogin, recordLogin,
+  findByEmail, findById, createUser, verifyPassword, touchLastLogin, recordLogin,
   recentFailedAttempts, ensureBootstrapAdmin, LOCKOUT_WINDOW_MIN, LOCKOUT_THRESHOLD,
+  listUsers, setPassword, updateUser, deleteUser, activeAdminCount, isLastActiveAdmin,
+  ROLES, isRole, clampRole, MIN_PASSWORD_LEN, assertPasswordStrength,
 };

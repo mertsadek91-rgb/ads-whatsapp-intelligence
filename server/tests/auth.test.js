@@ -66,7 +66,8 @@ describe("authUsers: bootstrap admin (BUG-002 — never leave zero possible logi
   it("creates exactly one admin when the users table is empty", async () => {
     const created = await users.ensureBootstrapAdmin();
     expect(created).toBeTruthy();
-    expect(created.email).toBe("admin@istmarkets.local");
+    // No longer a hardcoded brand address; overridable for headless installs.
+    expect(created.email).toBe("admin@localhost");
     expect(created.password.length).toBeGreaterThanOrEqual(10);
     expect(state.users.length).toBe(1);
   });

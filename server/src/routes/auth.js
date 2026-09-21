@@ -49,6 +49,37 @@ router.post("/login", loginLimiter, async (req, res) => {
   res.json({ ok: true, email: user.email, role: user.role });
 });
 
+/**
+ * Change your own password. Until now there was none: createUser was reachable
+ * only from ensureBootstrapAdmin, so the random password printed once to the
+ * server log was the permanent password for the install — despite the startup
+ * banner and the README both telling the operator to change it.
+ *
+ * Rate-limited with the login limiter: this endpoint verifies the current
+ * password, so without it an authenticated session is an offline-free oracle
+ * for guessing it.
+ */
+router.post("/change-password", loginLimiter, async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: "unauthorized" });
+  const current = req.body?.current_password || "";
+  const next = req.body?.new_password || "";
+
+  const user = await users.findById(req.session.userId);
+  if (!user || !(await users.verifyPassword(user, current))) {
+    await users.recordLogin({ email: user?.email || req.session.email, success: false,
+      ip: req.ip, userAgent: req.get("user-agent") || "" });
+    return res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة" });
+  }
+  if (current === next) {
+    return res.status(400).json({ error: "كلمة المرور الجديدة مطابقة للحالية" });
+  }
+  try { users.assertPasswordStrength(next); }
+  catch (e) { return res.status(400).json({ error: e.message }); }
+
+  await users.setPassword(user.id, next);
+  res.json({ ok: true });
+});
+
 router.post("/logout", (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });

@@ -48,8 +48,8 @@ const GROUPS = [
     ["/leads", "العملاء المؤهّلون", I.users],
     ["/conversations", "المحادثات + AI", I.chat],
     ["/tags", "وسوم العملاء", I.tag],
-    ["/assignment", "إسناد المحادثات", I.idcard],
-    ["/broadcasts", "حملات واتساب الجماعية", I.send],
+    ["/assignment", "إسناد المحادثات", I.idcard, ["admin", "manager"]],
+    ["/broadcasts", "حملات واتساب الجماعية", I.send, ["admin"]],
     ["/reengagement", "إعادة التواصل", I.refresh],
   ]],
   ["الفريق", [
@@ -57,17 +57,18 @@ const GROUPS = [
     ["/employees", "تقارير الموظفين", I.report],
     ["/salesboard", "لوحة المبيعات التحفيزية", I.board],
     ["/quality-review", "مراجعة الجودة والالتزام", I.star],
-    ["/employees-admin", "إدارة الموظفين والإيميلات", I.idcard],
-    ["/handover", "خروج موظف — تسليم", I.refresh],
+    ["/employees-admin", "إدارة الموظفين والإيميلات", I.idcard, ["admin"]],
+    ["/handover", "خروج موظف — تسليم", I.refresh, ["admin", "manager"]],
   ]],
   ["النظام", [
     ["/report", "التقرير الشامل", I.report],
     ["/knowledge", "قاعدة المعرفة", I.book],
-    ["/settings", "الإعدادات", I.cog],
+    ["/users", "المستخدمون والصلاحيات", I.idcard, ["admin"]],
+    ["/settings", "الإعدادات", I.cog, ["admin"]],
   ]],
 ];
 
-export default function Layout({ onLogout }) {
+export default function Layout({ onLogout, role }) {
   const { t, lang, setLang } = useI18n();
   const { currency, setCurrency, currencies } = useCurrency();
   const [drawer, setDrawer] = useState(false);
@@ -93,16 +94,24 @@ export default function Layout({ onLogout }) {
         </div>
 
         <nav className="nav">
-          {GROUPS.map(([group, links]) => (
-            <div key={group}>
-              <div className="nav-group-title">{t(group)}</div>
-              {links.map(([to, label, icon]) => (
-                <NavLink key={to} to={to} end={to === "/"}>
-                  <Icon d={icon} />{t(label)}
-                </NavLink>
-              ))}
-            </div>
-          ))}
+          {GROUPS.map(([group, links]) => {
+            // Hide what this account cannot use. The server is the access
+            // control (requireRole in server.js); this just avoids showing a
+            // link that can only answer 403. A whole section disappears when
+            // nothing in it is visible, rather than leaving an empty heading.
+            const visible = links.filter(([, , , roles]) => !roles || roles.includes(role));
+            if (!visible.length) return null;
+            return (
+              <div key={group}>
+                <div className="nav-group-title">{t(group)}</div>
+                {visible.map(([to, label, icon]) => (
+                  <NavLink key={to} to={to} end={to === "/"}>
+                    <Icon d={icon} />{t(label)}
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
         </nav>
 
       </aside>

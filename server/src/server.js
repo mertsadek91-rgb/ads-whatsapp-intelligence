@@ -11,8 +11,9 @@ import config from "./config.js";
 import { pool } from "./db.js";
 import { healthCheck } from "./lib/health.js";
 import { apiLog } from "./middleware/apiLog.js";
-import { requireAuth } from "./middleware/auth.js";
+import { requireAuth, requireRole } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
+import usersRoutes from "./routes/users.js";
 import analyticsRoutes from "./routes/analytics.js";
 import leadsRoutes from "./routes/leads.js";
 import adminRoutes, { hydrateJobs as hydrateAdminJobs } from "./routes/admin.js";
@@ -84,19 +85,31 @@ app.get("/api/health", async (req, res) => {
   const result = await healthCheck();
   res.status(result.ok ? 200 : 503).json(result);
 });
+// Read surfaces: any signed-in account.
 app.use("/api/analytics", requireAuth, analyticsRoutes);
 app.use("/api/leads", requireAuth, leadsRoutes);
-app.use("/api/admin", requireAuth, adminRoutes);
-app.use("/api/meta", requireAuth, metaAuthRoutes);
+
+// Write surfaces. These used to sit behind requireAuth alone, which meant the
+// session role was stored and returned but never actually checked — so a
+// read-only account could trigger a full resync, rotate the Meta token, or
+// send a WhatsApp broadcast to the entire contact list at real per-message
+// cost. The gate is conservative on purpose: admin unless there is a clear
+// day-to-day reason for an operations manager to need it.
+app.use("/api/admin", requireRole("admin"), adminRoutes);
+app.use("/api/meta", requireRole("admin"), metaAuthRoutes);
+app.use("/api/users", requireRole("admin"), usersRoutes);
 app.use("/api/conversations", requireAuth, conversationsRoutes);
 app.use("/api/report", requireAuth, reportRoutes);
+// Not admin-gated at the mount: the currency rates here are fetched by the
+// CurrencyProvider on every page for every signed-in user. The read/write
+// split lives inside the router instead (routes/settings.js).
 app.use("/api/settings", requireAuth, settingsRoutes);
 app.use("/api/knowledge", requireAuth, knowledgeRoutes);
 app.use("/api/salesboard", requireAuth, salesboardRoutes);
-app.use("/api/assignment", requireAuth, assignmentRoutes);
+app.use("/api/assignment", requireRole("admin", "manager"), assignmentRoutes);
 app.use("/api/quality", requireAuth, qualityReviewRoutes);
 app.use("/api/tags", requireAuth, tagRoutes);
-app.use("/api/broadcasts", requireAuth, broadcastsRoutes);
+app.use("/api/broadcasts", requireRole("admin"), broadcastsRoutes);
 
 // Serve built frontend (web/dist) if present
 const dist = path.resolve(__dirname, "../../web/dist");

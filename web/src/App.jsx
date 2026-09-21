@@ -33,13 +33,15 @@ const Salesboard = lazy(() => import("./pages/Salesboard.jsx"));
 const SalesScreen = lazy(() => import("./pages/SalesScreen.jsx"));
 const QualityScreen = lazy(() => import("./pages/QualityScreen.jsx"));
 const Settings = lazy(() => import("./pages/Settings.jsx"));
+const Users = lazy(() => import("./pages/Users.jsx"));
 
 function AppInner() {
   const { t } = useI18n();
-  const [authed, setAuthed] = useState(null); // null = loading
+  const [me, setMe] = useState(null); // null = loading
+  const authed = me?.authed ?? null;
 
   useEffect(() => {
-    api.me().then((r) => setAuthed(r.authed)).catch(() => setAuthed(false));
+    api.me().then(setMe).catch(() => setMe({ authed: false }));
   }, []);
 
   // Public wall-display (kiosk) — no login, token-gated by the page itself.
@@ -56,14 +58,14 @@ function AppInner() {
   }
 
   if (authed === null) return <div style={{ padding: 40 }}>{t("جارٍ التحميل…")}</div>;
-  if (!authed) return <Login onLogin={() => setAuthed(true)} />;
+  if (!authed) return <Login onLogin={() => api.me().then(setMe).catch(() => setMe({ authed: true }))} />;
 
   return (
     <DateRangeProvider>
       <CurrencyProvider>
         <Suspense fallback={<div style={{ padding: 40 }}>{t("جارٍ التحميل…")}</div>}>
           <Routes>
-            <Route element={<Layout onLogout={() => setAuthed(false)} />}>
+            <Route element={<Layout onLogout={() => setMe({ authed: false })} role={me?.role} />}>
               <Route path="/salesboard" element={<Salesboard />} />
               <Route path="/" element={<Dashboard />} />
               <Route path="/campaigns" element={<Campaigns />} />
@@ -85,6 +87,7 @@ function AppInner() {
               <Route path="/tags" element={<Tags />} />
               <Route path="/broadcasts" element={<Broadcasts />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/users" element={<Users />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Route>
           </Routes>

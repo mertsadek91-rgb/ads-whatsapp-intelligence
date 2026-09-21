@@ -4,6 +4,7 @@
 // metaAuth.js already uses for the Meta OAuth token).
 import { Router } from "express";
 import { query } from "../db.js";
+import { requireRole } from "../middleware/auth.js";
 import { CURRENCIES, DEFAULT_RATES, sanitizeRates } from "../lib/currency.js";
 import { COUNTRIES } from "../lib/phoneCountry.js";
 import { isConfigured as smtpConfigured } from "../lib/mailer.js";
@@ -11,6 +12,12 @@ import { readWorkHours, sanitizeWorkHours } from "../lib/contactStatus.js";
 import { wrap } from "../lib/wrap.js";
 
 const router = Router();
+
+// Only an admin may change how the system is configured or read the staff
+// directory (which is a list of employee email addresses). Reads that the
+// shared UI needs — the currency rates the CurrencyProvider loads on every
+// page, and the country vocabulary — stay open to any signed-in account.
+const admin = requireRole("admin");
 const RATES_KEY = "currency_rates";
 const EMAIL_ENABLED_KEY = "reports_email_enabled";
 const WORK_HOURS_KEY = "work_hours";
@@ -22,7 +29,7 @@ router.get("/currency", wrap(async (req, res) => {
   res.json({ currencies: CURRENCIES, rates });
 }));
 
-router.post("/currency", wrap(async (req, res) => {
+router.post("/currency", admin, wrap(async (req, res) => {
   const rates = sanitizeRates(req.body?.rates);
   await query(
     "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
@@ -38,7 +45,7 @@ const safeJson = (v) => { try { return typeof v === "string" ? JSON.parse(v) : (
 // The country vocabulary for the multi-select on the admin page.
 router.get("/country-options", wrap(async (req, res) => res.json(COUNTRIES)));
 
-router.get("/employees", wrap(async (req, res) => {
+router.get("/employees", admin, wrap(async (req, res) => {
   const rows = await query(
     "select id, owner_name, email, full_name, role, lang, active, countries, notes from ads_employees order by role, owner_name, id");
   for (const r of rows) r.countries = safeJson(r.countries);
@@ -46,7 +53,7 @@ router.get("/employees", wrap(async (req, res) => {
 }));
 
 // Upsert one employee (insert when no id, update when id given).
-router.post("/employees", wrap(async (req, res) => {
+router.post("/employees", admin, wrap(async (req, res) => {
   const b = req.body || {};
   const role = ROLES.has(b.role) ? b.role : "agent";
   const lang = b.lang === "en" ? "en" : "ar";
@@ -72,14 +79,14 @@ router.post("/employees", wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-router.delete("/employees/:id", wrap(async (req, res) => {
+router.delete("/employees/:id", admin, wrap(async (req, res) => {
   await query("delete from ads_employees where id=?", [Number(req.params.id)]);
   res.json({ ok: true });
 }));
 
 // Seed agent rows from the distinct Wati owners that don't have a row yet
 // (empty email — the admin fills it in). Bot/blank owners are excluded.
-router.post("/employees/seed", wrap(async (req, res) => {
+router.post("/employees/seed", admin, wrap(async (req, res) => {
   const owners = await query(
     `select distinct contact_owner o from ads_wati_contacts
      where contact_owner is not null and trim(contact_owner) <> ''`);
@@ -97,12 +104,12 @@ router.post("/employees/seed", wrap(async (req, res) => {
 }));
 
 // ---- Nightly-report master send switch + SMTP status ----
-router.get("/reports", wrap(async (req, res) => {
+router.get("/reports", admin, wrap(async (req, res) => {
   const r = await query("select v from ads_settings where k = ?", [EMAIL_ENABLED_KEY]);
   res.json({ email_enabled: r.length ? r[0].v === "1" : false, smtp_configured: smtpConfigured() });
 }));
 
-router.post("/reports", wrap(async (req, res) => {
+router.post("/reports", admin, wrap(async (req, res) => {
   const enabled = req.body?.email_enabled ? "1" : "0";
   await query(
     "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
@@ -113,7 +120,7 @@ router.post("/reports", wrap(async (req, res) => {
 // ---- Working hours (Dubai) — classify not-contacted leads as after-hours ----
 router.get("/work-hours", wrap(async (req, res) => res.json(await readWorkHours())));
 
-router.post("/work-hours", wrap(async (req, res) => {
+router.post("/work-hours", admin, wrap(async (req, res) => {
   const wh = sanitizeWorkHours(req.body);
   await query(
     "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",

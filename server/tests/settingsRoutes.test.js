@@ -27,9 +27,16 @@ vi.mock("../src/db.js", () => ({
 
 const settingsRouter = (await import("../src/routes/settings.js")).default;
 
-function buildApp() {
+// Configuration writes and the staff directory are admin-only now, so the
+// harness carries a session the way the real app does. Pass a role to check
+// what a lesser account can reach.
+function buildApp(role = "admin") {
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => {
+    req.session = role ? { userId: 1, email: "admin@example.com", role } : {};
+    next();
+  });
   app.use("/settings", settingsRouter);
   return app;
 }
