@@ -93,9 +93,95 @@ export default function Settings() {
         </div>
       </div>
 
+      <DataRangeSection />
       <CurrencyRatesSection />
       <WorkHoursSection />
     </>
+  );
+}
+
+// How far back every import reads. Asked once during setup, and changed here
+// afterwards — the honest first answer is usually "the last few months", and
+// the answer a month later is "actually, everything".
+//
+// Saving changes nothing already stored: it decides what the NEXT import reads.
+// The section says so and offers to run one, because the alternative is an
+// operator who saves a wider range, sees the same numbers, and concludes the
+// setting is broken.
+function DataRangeSection() {
+  const { t } = useI18n();
+  const { data, reload } = useFetch("/settings/data-range");
+  const [mode, setMode] = useState(null);      // "default" | "all" | "date"
+  const [date, setDate] = useState("");
+  const [msgs, setMsgs] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [msg, setMsg] = useState(null);
+
+  useEffect(() => {
+    if (!data) return;
+    setMode(data.since === "all" ? "all" : data.since ? "date" : "default");
+    setDate(data.since && data.since !== "all" ? data.since : "");
+    setMsgs(!!data.watiMessages);
+  }, [data]);
+  if (!data || !mode) return null;
+
+  const since = mode === "all" ? "all" : mode === "date" ? date : "";
+
+  async function run(kind, fn, okText) {
+    setBusy(kind); setMsg(null);
+    try { await fn(); setMsg({ ok: true, text: okText }); reload(); }
+    catch (e) { setMsg({ ok: false, text: e.message }); }
+    finally { setBusy(""); }
+  }
+
+  return (
+    <div className="section">
+      <h3>{t("مدى البيانات المستوردة")}</h3>
+      <p className="muted" style={{ marginBottom: 12 }}>
+        {t("يحدّد من أي تاريخ يقرأ النظام حملات Meta ومحادثات واتساب. الحالي")}: <b>{data.ar}</b>
+      </p>
+
+      <label className="chk">
+        <input type="radio" name="dr" checked={mode === "all"} onChange={() => setMode("all")} />
+        {t("كل البيانات المتاحة — نحو 37 شهراً من Meta، وكل جهات اتصال واتساب")}
+      </label>
+      <label className="chk">
+        <input type="radio" name="dr" checked={mode === "date"} onChange={() => setMode("date")} />
+        {t("من تاريخ محدّد")}
+      </label>
+      {mode === "date" && (
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+          style={{ maxWidth: 200, marginInlineStart: 26 }} />
+      )}
+      <label className="chk">
+        <input type="radio" name="dr" checked={mode === "default"} onChange={() => setMode("default")} />
+        {t("النافذة الافتراضية — آخر {n} يوماً", { n: data.lookbackDays })}
+      </label>
+
+      <label className="chk" style={{ marginTop: 14 }}>
+        <input type="checkbox" checked={msgs} onChange={(e) => setMsgs(e.target.checked)} />
+        {t("اسحب نصّ محادثات واتساب (مطلوب للتقييم — وهو الجزء الأبطأ: طلب لكل جهة اتصال)")}
+      </label>
+
+      <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button className="btn" disabled={busy || (mode === "date" && !date)}
+          onClick={() => run("save",
+            () => api.post("/settings/data-range", { since, watiMessages: msgs }),
+            t("حُفِظ. سيُطبَّق على عملية الاستيراد القادمة."))}>
+          {busy === "save" ? "…" : t("حفظ")}
+        </button>
+        <button className="btn ghost" disabled={busy}
+          onClick={() => run("import",
+            () => api.post("/settings/data-range/import"),
+            t("بدأ الاستيراد في الخلفية — تابِعه من حالة المهام."))}>
+          {busy === "import" ? "…" : t("استورد الآن بهذا المدى")}
+        </button>
+      </div>
+      <p className="muted" style={{ marginTop: 10 }}>
+        {t("الحفظ وحده لا يجلب شيئاً جديداً — شغّل الاستيراد لملء الفترة الإضافية. قد يستغرق ساعات على حساب كبير، ويعمل في الخلفية.")}
+      </p>
+      {msg && <div className={msg.ok ? "good" : "bad"} style={{ marginTop: 10 }}>{msg.text}</div>}
+    </div>
   );
 }
 

@@ -23,6 +23,7 @@ import { generateBusinessProfile, fetchBusinessFromSite } from "../lib/profileGe
 import * as businessProfile from "../lib/businessProfile.js";
 import { budgetRemaining } from "../lib/deepseek.js";
 import { redirectUri } from "../setup/validators/meta.js";
+import { normalizeSince, describeRange } from "../lib/dataRange.js";
 
 const router = Router();
 
@@ -67,6 +68,7 @@ router.get("/status", (req, res) => {
         appSecret: mask(config.meta.appSecret), token: mask(config.meta.token) },
       wati: { endpoint: config.wati.endpoint, token: mask(config.wati.token) },
       ai: { baseUrl: config.deepseek.baseUrl, model: config.deepseek.model, apiKey: mask(config.deepseek.apiKey) },
+      data: describeRange(config),
     },
     redirectUri: redirectUri(config.appBaseUrl),
   });
@@ -165,7 +167,6 @@ router.post("/meta/save", testThenSave("meta", metaValidator.validate, async (bo
     "meta.token": body.token || "",
     "meta.accountId": body.accountId || "",
     "meta.apiVersion": body.apiVersion || "v21.0",
-    ...(body.periodSince ? { "meta.periodSince": body.periodSince } : {}),
     ...(body.lookbackDays ? { "meta.lookbackDays": body.lookbackDays } : {}),
   }, { updatedBy: "setup" });
 }));
@@ -356,11 +357,29 @@ router.post("/finish", async (req, res) => {
     if (await users.findByEmail(email)) {
       return res.status(409).json({ ok: false, detail: "هذا البريد مسجّل بالفعل" });
     }
+    // How much history to import. Saved before the account so that the import
+    // started below — and every later one — reads the operator's own choice
+    // rather than the default window.
+    await appConfig.saveConfig({
+      "data.since": normalizeSince(req.body?.data?.since),
+      "data.watiMessages": !!req.body?.data?.watiMessages,
+    }, { updatedBy: "setup" });
+
     await users.createUser(email, password, "admin");
     state.writeState({ installed: true, installedAt: new Date().toISOString(), claim: null });
     // Swap the 503 router for the real API in this process — no restart.
     await activateRuntime();
-    res.json({ ok: true, email });
+
+    // Then fill the app with data. Without this an operator lands on empty
+    // boards and has no way of knowing whether that means "still importing" or
+    // "misconfigured"; the import shows up in the normal job status panel.
+    let importStarted = false;
+    if (req.body?.startImport !== false && (config.meta.accountId || config.wati.token)) {
+      const { backfill } = await import("../jobs/backfill.js");
+      const { runJob } = await import("./admin.js");
+      importStarted = await runJob("wati", () => backfill());
+    }
+    res.json({ ok: true, email, importStarted, range: describeRange(config) });
   } catch (e) {
     res.status(500).json({ ok: false, detail: e.message });
   }

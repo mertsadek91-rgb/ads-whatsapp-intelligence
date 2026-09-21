@@ -4,11 +4,12 @@ import * as meta from "../lib/meta.js";
 import * as metaAuth from "../lib/metaAuth.js";
 import { upsert, query } from "../db.js";
 import config from "../config.js";
+import { metaSince } from "../lib/dataRange.js";
 
-// Read per run, not at import: the install date is chosen during setup.
-// Falls back to the lookback window when nothing has been configured.
-const since = () => config.meta.periodSince
-  || new Date(Date.now() - config.meta.lookbackDays * 86400000).toISOString().slice(0, 10);
+// Read per run, not at import: the start date is chosen during setup and can be
+// changed afterwards from Settings. See lib/dataRange.js for what blank, a date
+// and "all" each mean, and why Meta clamps the last of those.
+const since = () => metaSince(config);
 const AD_COLS = ["ad_id","ad_name","campaign_id","campaign_name","adset_id","adset_name","status","spend_aed",
   "impressions","reach","clicks","ctr_pct","cpc_aed","cpm_aed","frequency","results","cpr_aed","period_since","period_until"];
 const ADSET_COLS = ["adset_id","adset_name","campaign_id","campaign_name","status","spend_aed","impressions",

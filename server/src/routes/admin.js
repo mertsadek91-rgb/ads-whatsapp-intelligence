@@ -142,23 +142,38 @@ function persist(name) {
   return saveJobState(`admin:${name}`, jobs[name]).catch((e) => console.error(`[admin] job state save (${name}) failed:`, e.message));
 }
 
-async function start(name, fn, res) {
-  if (jobs[name].state === "running") {
-    return res.status(409).json({ error: "التحديث قيد التشغيل بالفعل" });
-  }
+/**
+ * Run a background job under this module's state tracking. Returns false when
+ * one is already in flight.
+ *
+ * Exported because the setup wizard starts the very first import the moment
+ * installation finishes, and that import must appear in the same status panel
+ * as every later one — otherwise the operator's first experience of the app is
+ * empty boards with nothing telling them why.
+ */
+export async function runJob(name, fn) {
+  if (!jobs[name] || jobs[name].state === "running") return false;
   jobs[name] = { ...idle(), state: "running", startedAt: Date.now() };
   await persist(name);
-  res.json({ started: true });
-  try {
-    const result = await fn();
-    jobs[name] = { state: "done", result, error: null, startedAt: jobs[name].startedAt, finishedAt: Date.now() };
+  (async () => {
+    try {
+      const result = await fn();
+      jobs[name] = { state: "done", result, error: null, startedAt: jobs[name].startedAt, finishedAt: Date.now() };
+      console.log(`[admin] ${name} done:`, JSON.stringify(result));
+    } catch (e) {
+      jobs[name] = { state: "error", result: null, error: e.message || String(e), startedAt: jobs[name].startedAt, finishedAt: Date.now() };
+      console.error(`[admin] ${name} error:`, e.message);
+    }
     await persist(name);
-    console.log(`[admin] ${name} done:`, JSON.stringify(result));
-  } catch (e) {
-    jobs[name] = { state: "error", result: null, error: e.message || String(e), startedAt: jobs[name].startedAt, finishedAt: Date.now() };
-    await persist(name);
-    console.error(`[admin] ${name} error:`, e.message);
+  })();
+  return true;
+}
+
+async function start(name, fn, res) {
+  if (!(await runJob(name, fn))) {
+    return res.status(409).json({ error: "التحديث قيد التشغيل بالفعل" });
   }
+  res.json({ started: true });
 }
 
 // Isolated updates — each side independently.
@@ -177,8 +192,11 @@ router.post("/run-daily", (req, res) =>
     return r.wati;
   }, res));
 
+// Re-import from scratch over the configured data range. `messages` is
+// optional: left out, the operator's own choice from Settings applies.
 router.post("/backfill", (req, res) =>
-  start("wati", () => backfill({ messages: !!(req.body && req.body.messages) }), res));
+  start("wati", () => backfill(
+    req.body && req.body.messages !== undefined ? { messages: !!req.body.messages } : {}), res));
 
 /**
  * EMERGENCY board refresh — re-read everything behind the two wall boards now.

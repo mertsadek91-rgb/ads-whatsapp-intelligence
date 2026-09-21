@@ -48,7 +48,9 @@ export const CONFIG_SCHEMA = {
   "meta.accountId": (v) => STR(v).replace("act_", ""),
   "meta.lookbackDays": NUM,
   "meta.apiVersion": STR,
-  "meta.periodSince": STR,
+  // How far back to import, for both sources at once. "" = everything available.
+  "data.since": STR,
+  "data.watiMessages": BOOL,
   "deepseek.apiKey": STR,
   "deepseek.baseUrl": (v) => STR(v).replace(/\/$/, ""),
   "deepseek.model": STR,

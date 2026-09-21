@@ -3,6 +3,8 @@ import * as wati from "../lib/wati.js";
 import { normalizeStage, scoreContact } from "../lib/score.js";
 import { countryOf } from "../lib/phoneCountry.js";
 import { upsert } from "../db.js";
+import config from "../config.js";
+import { watiSince, describeRange } from "../lib/dataRange.js";
 
 export const WATI_COLS = [
   "wa_id", "bsuid", "full_name", "phone", "created_date", "created_at", "country",
@@ -84,14 +86,28 @@ async function flush(rows, wantMessages) {
   console.log(`[wati] flushed ${rows.length} (${attributed} with source_ad_id)`);
 }
 
-/** opts: { incremental:bool, hours:24, messages:bool } */
+/**
+ * opts: { incremental:bool, hours:24, messages:bool, since:Date|null }
+ *
+ * `since` bounds the EXPENSIVE half only. Wati's getContacts has no date
+ * filter, so every contact is read and stored whatever the range — but the
+ * message thread behind each one is a separate request, and fetching forty
+ * thousand of them to report on the last quarter is the difference between a
+ * ten-minute import and an overnight one. Contacts created before `since`
+ * therefore keep their row and skip their thread.
+ */
 export async function ingestWati(opts = {}) {
   const { incremental = false, hours = 24, messages = !incremental ? false : true } = opts;
+  const since = opts.since !== undefined ? opts.since : (messages ? watiSince(config) : null);
   const cutoff = incremental ? new Date(Date.now() - hours * 3600000) : null;
   if (incremental) console.log(`[wati] INCREMENTAL — updated since ${cutoff.toISOString()} (last ${hours}h)`);
-  else console.log(`[wati] FULL backfill (messages=${messages})`);
+  else console.log(`[wati] FULL backfill (${describeRange(config).en})`);
 
-  let rows = [], scanned = 0, kept = 0;
+  // Rows are flushed in two groups because whether the message facts were
+  // fetched decides how the upsert treats the derived score columns, and with
+  // a `since` date in play that now differs per contact rather than per run.
+  const batch = { true: [], false: [] };
+  let scanned = 0, kept = 0;
   for await (const c of wati.iterContacts()) {
     scanned++;
     if (cutoff) {
@@ -116,11 +132,20 @@ export async function ingestWati(opts = {}) {
     // folding table doc 04/06 describes (deferred until real merge data
     // is observed).
     if (wati.field(c, "isMerged")) continue;
-    const r = await buildRow(c, messages);
-    if (r[0]) { rows.push(r); kept++; }
-    if (rows.length >= 500) { await flush(rows, messages); rows = []; }
+    // Older than the chosen start date: keep the contact, skip its thread. A
+    // contact with no creation date is included rather than excluded — same
+    // safe default as the incremental filter above.
+    const created = wati.parseCreated(c);
+    const wantMessages = messages && !(since && created && created < since);
+    const r = await buildRow(c, wantMessages);
+    if (r[0]) { batch[String(wantMessages)].push(r); kept++; }
+    for (const k of ["true", "false"]) {
+      if (batch[k].length >= 500) { await flush(batch[k], k === "true"); batch[k] = []; }
+    }
   }
-  if (rows.length) await flush(rows, messages);
+  for (const k of ["true", "false"]) {
+    if (batch[k].length) await flush(batch[k], k === "true");
+  }
   console.log(`[wati] scanned ${scanned}, upserted ${kept}`);
   return { scanned, kept };
 }

@@ -66,6 +66,8 @@ export async function runDaily({ hours = 24 } = {}) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  const { bootstrapCli } = await import("../lib/bootstrapCli.js");
+  await bootstrapCli();
   runDaily().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
 }
 

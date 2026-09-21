@@ -11,6 +11,9 @@ import { COUNTRIES } from "../lib/phoneCountry.js";
 import { isConfigured as smtpConfigured } from "../lib/mailer.js";
 import { readWorkHours, sanitizeWorkHours } from "../lib/contactStatus.js";
 import { wrap } from "../lib/wrap.js";
+import config from "../config.js";
+import { saveConfig } from "../lib/appConfig.js";
+import { normalizeSince, describeRange } from "../lib/dataRange.js";
 
 const router = Router();
 
@@ -121,6 +124,35 @@ router.post("/reports", admin, wrap(async (req, res) => {
     "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
     [EMAIL_ENABLED_KEY, enabled]);
   res.json({ email_enabled: enabled === "1", smtp_configured: smtpConfigured() });
+}));
+
+// ---- How far back imports read ----
+// The wizard asks this once; it must be changeable afterwards, because the
+// honest first answer is often "the last 90 days" and the answer six weeks
+// later is "actually, everything". Stored in app_config rather than
+// ads_settings so it reaches the running process through the same hydrate path
+// as every other configurable value.
+router.get("/data-range", admin, wrap(async (req, res) => {
+  res.json({ ...describeRange(config), lookbackDays: config.meta.lookbackDays });
+}));
+
+router.post("/data-range", admin, wrap(async (req, res) => {
+  await saveConfig({
+    "data.since": normalizeSince(req.body?.since),
+    "data.watiMessages": !!req.body?.watiMessages,
+  }, { updatedBy: req.session?.email || "settings" });
+  // Changing the range changes nothing already stored — it decides what the
+  // NEXT import reads. Say so, and offer to run one now.
+  res.json({ ...describeRange(config), lookbackDays: config.meta.lookbackDays });
+}));
+
+/** Re-import over the new range. Same job the admin backfill button runs. */
+router.post("/data-range/import", admin, wrap(async (req, res) => {
+  const { backfill } = await import("../jobs/backfill.js");
+  const { runJob } = await import("./admin.js");
+  const started = await runJob("wati", () => backfill());
+  if (!started) return res.status(409).json({ error: "الاستيراد قيد التشغيل بالفعل" });
+  res.json({ started: true, ...describeRange(config) });
 }));
 
 // ---- Working hours (Dubai) — classify not-contacted leads as after-hours ----

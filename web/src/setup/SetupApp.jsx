@@ -19,7 +19,7 @@ const STEP_TITLES = {
   wati: ["واتساب عبر Wati", "WhatsApp via Wati"],
   ai: ["الذكاء الاصطناعي", "AI"],
   business: ["تعريف النشاط", "Your business"],
-  finish: ["حساب المدير", "Administrator"],
+  finish: ["الحساب والبيانات", "Account & data"],
 };
 const ORDER = ["db", "meta", "wati", "ai", "business", "finish"];
 
@@ -44,7 +44,10 @@ export default function SetupApp() {
     wati: { endpoint: "", token: "" },
     ai: { apiKey: "", baseUrl: "https://api.deepseek.com", model: "", dailyBudgetUsd: 10 },
     business: { websiteUrl: "", description: "", language: "ar" },
-    finish: { email: "", password: "" },
+    // "all" by default: a new installation with three months of data looks
+    // broken, and the operator has no way to tell that from an import that is
+    // working. Narrowing it is a deliberate choice they can make here or later.
+    finish: { email: "", password: "", since: "all", sinceDate: "", watiMessages: true },
   });
 
   const t = (ar, en) => (lang === "en" ? en : ar);
@@ -224,7 +227,13 @@ export default function SetupApp() {
     setBusy(true); setResult(null);
     try {
       if (!(await claimIfNeeded())) return;
-      const { data, ok } = await setupApi.finish(form.finish);
+      const { data, ok } = await setupApi.finish({
+        email: form.finish.email, password: form.finish.password,
+        data: {
+          since: form.finish.since === "date" ? form.finish.sinceDate : form.finish.since,
+          watiMessages: form.finish.watiMessages,
+        },
+      });
       if (!ok) { setResult({ ok: false, ar: data.detail, en: data.detail }); return; }
       window.location.href = "/";
     } finally { setBusy(false); }
@@ -243,8 +252,8 @@ export default function SetupApp() {
       <aside className="setup-rail">
         <h1>{t("تنصيب النظام", "Installation")}</h1>
         <p className="setup-sub">
-          {t("خمس خطوات، كل واحدة تُختبر فعلياً قبل الحفظ.",
-             "Five steps, each verified against the real service before it is saved.")}
+          {t("ست خطوات، كل واحدة تُختبر فعلياً قبل الحفظ.",
+             "Six steps, each verified against the real service before it is saved.")}
         </p>
         <ol className="setup-steps">
           {ORDER.map((s, i) => (
@@ -485,6 +494,50 @@ export default function SetupApp() {
               onChange={(v) => set("finish", "email", v)} type="email" />
             <Field field="admin.password" lang={lang} value={form.finish.password}
               onChange={(v) => set("finish", "password", v)} type="password" />
+
+            <h3 className="setup-subhead">{t("ما الذي نستورده؟", "What should we import?")}</h3>
+            <p className="setup-note">
+              {t("سنبدأ الاستيراد فور انتهاء التنصيب. يمكنك تغيير هذا لاحقاً من الإعدادات.",
+                 "The import starts the moment setup finishes. You can change this later in Settings.")}
+            </p>
+
+            <div className="setup-field">
+              <label>
+                <input type="radio" name="since" checked={form.finish.since === "all"}
+                  onChange={() => set("finish", "since", "all")} />
+                {" "}{t("كل البيانات المتاحة", "Everything available")}
+              </label>
+              <p className="setup-note">
+                {t("إعلانات Meta: نحو 37 شهراً (أقصى ما يحتفظ به Meta). واتساب: كل جهات الاتصال.",
+                   "Meta ads: about 37 months, which is all Meta keeps. WhatsApp: every contact.")}
+              </p>
+
+              <label>
+                <input type="radio" name="since" checked={form.finish.since === "date"}
+                  onChange={() => set("finish", "since", "date")} />
+                {" "}{t("من تاريخ محدّد", "From a specific date")}
+              </label>
+              {form.finish.since === "date" && (
+                <input type="date" value={form.finish.sinceDate}
+                  onChange={(e) => set("finish", "sinceDate", e.target.value)} />
+              )}
+            </div>
+
+            <div className="setup-field">
+              <label>
+                <input type="checkbox" checked={form.finish.watiMessages}
+                  onChange={(e) => set("finish", "watiMessages", e.target.checked)} />
+                {" "}{t("اسحب نصّ محادثات واتساب أيضاً",
+                       "Also pull the WhatsApp conversation text")}
+              </label>
+              <p className="setup-note">
+                {form.finish.watiMessages
+                  ? t("مطلوب لتقييم المحادثات — بدونه لدينا جهات الاتصال فقط بلا كلام نقيّمه. وهو الجزء الأبطأ: طلب لكل جهة اتصال، فقد يستغرق ساعات على حساب كبير، ويكمل في الخلفية.",
+                       "Required for conversation scoring — without it we have contact records and nothing to read. It is also the slowest part: one request per contact, so a large account can take hours. It runs in the background.")
+                  : t("سيصل النظام إلى جهات الاتصال والحملات فقط — لن يقيّم أي محادثة حتى تُفعّل هذا.",
+                       "The system will have contacts and campaigns only — it will score no conversations until you turn this on.")}
+              </p>
+            </div>
           </>
         )}
 
@@ -503,7 +556,8 @@ export default function SetupApp() {
             <button className="btn ghost" disabled={busy}
               onClick={() => setStep(ORDER[ORDER.indexOf(step) - 1])}>{t("رجوع", "Back")}</button>
             <button className="btn primary" onClick={finish}
-              disabled={busy || !form.finish.email || !form.finish.password}>
+              disabled={busy || !form.finish.email || !form.finish.password
+                || (form.finish.since === "date" && !form.finish.sinceDate)}>
               {busy ? t("جارٍ الإنهاء…", "Finishing…") : t("إنهاء التنصيب", "Finish installation")}
             </button>
           </div>

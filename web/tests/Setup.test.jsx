@@ -78,7 +78,7 @@ describe("the wizard itself", () => {
   it("lists all six steps and starts on the database", async () => {
     await renderWizard();
     for (const s of ["قاعدة البيانات", "حساب إعلانات Meta", "واتساب عبر Wati",
-                     "الذكاء الاصطناعي", "تعريف النشاط", "حساب المدير"]) {
+                     "الذكاء الاصطناعي", "تعريف النشاط", "الحساب والبيانات"]) {
       expect(screen.getAllByText(s).length).toBeGreaterThan(0);
     }
   });

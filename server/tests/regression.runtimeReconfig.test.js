@@ -10,7 +10,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockConfig = {
   mysql: { host: "h", port: 3306, user: "u", password: "p", database: "d" },
-  meta: { apiVersion: "v21.0", accountId: "", token: "t", appId: "", appSecret: "", scopes: "", lookbackDays: 30, periodSince: "" },
+  meta: { apiVersion: "v21.0", accountId: "", token: "t", appId: "", appSecret: "", scopes: "", lookbackDays: 30 },
+  data: { since: "", watiMessages: false },
   wati: { endpoint: "", token: "" },
   smtp: { host: "", port: 587, secure: false, user: "", pass: "", from: "" },
   deepseek: {}, auth: {}, workHours: { start: 9, end: 17, offDays: [0, 6] },

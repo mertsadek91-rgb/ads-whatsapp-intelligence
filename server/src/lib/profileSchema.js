@@ -208,7 +208,9 @@ export function validateProfile(raw, { repair = true } = {}) {
       const code = Array.isArray(t) ? str(t[0]) : str(t?.code);
       if (!TAG_RE.test(code)) return null;
       if (seenTag.has(code)) {
-        errors.push(`tag "${code}" appears in both "${seenTag.get(code)}" and "${key}"`);
+        repairs.push(
+          `tag "${code}" was claimed by both "${seenTag.get(code)}" and "${key}" — ` +
+          `kept in "${seenTag.get(code)}", removed from "${key}"`);
         return null;
       }
       seenTag.set(code, key);

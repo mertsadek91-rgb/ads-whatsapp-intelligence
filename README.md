@@ -49,11 +49,27 @@ docker compose up --build
 3. **واتساب (Wati)** — يصحّح العنوان تلقائياً إن نقصه رقم المستأجر، ويعرض أرقام واتساب المتصلة وعدد جهات الاتصال.
 4. **الذكاء الاصطناعي** — يتحقّق من المفتاح ومن وجود رصيد (وهما خطآن مختلفان)، ويعرض النماذج المتاحة.
 5. **تعريف نشاطك** — رابط موقعك + وصف نشاطك. يقرأ النظام موقعك ويبني ملف التقييم، ثم **يعرضه عليك للمراجعة**.
-6. **حساب المدير** — بريدك وكلمة مرورك. ينتهي التنصيب ويعمل النظام فوراً بلا إعادة تشغيل.
+6. **الحساب والبيانات** — بريدك وكلمة مرورك، ثم **من أي تاريخ نسحب البيانات**: كل
+   المتاح، أو من يوم تختاره، مع خيار سحب نصّ محادثات واتساب. ينتهي التنصيب، ويبدأ
+   الاستيراد فوراً في الخلفية بلا إعادة تشغيل.
 
 كل خطوة فيها زر **«من أين أحصل على هذا؟»** يشرح بالتفصيل — أي صفحة في لوحة Meta،
 وأين رمز Wati، ولماذا لا يعمل مفتاح DeepSeek بلا رصيد، وأوامر SQL الجاهزة لإنشاء
 مستخدم قاعدة بيانات.
+
+## مدى البيانات
+
+سؤال واحد — «من متى تريد البيانات؟» — خلفه مصدران مختلفان تماماً:
+
+- **Meta** يحتفظ بنحو 37 شهراً من بيانات الإعلانات. «كل المتاح» تعني ذلك فعلياً؛
+  طلب تاريخ أقدم لا يعطي شيئاً إضافياً.
+- **واتساب (Wati)** لا يوفّر فلترة بالتاريخ في قائمة جهات الاتصال إطلاقاً، فتُقرأ
+  القائمة كاملة دائماً. التاريخ يحدّ الجزء المكلف فقط: **لأي جهات اتصال نسحب نصّ
+  المحادثة** — طلب منفصل لكل جهة اتصال، وهو أبطأ جزء في العملية بفارق كبير.
+
+بدون سحب نصّ المحادثات لن يُقيَّم أي حوار — سيكون لديك جهات اتصال وحملات فقط.
+غيّر المدى لاحقاً من **الإعدادات ← مدى البيانات المستوردة**؛ الحفظ وحده لا يجلب
+شيئاً، فاضغط «استورد الآن» لملء الفترة الإضافية.
 
 ## مراجعة ملف نشاطك
 
@@ -136,11 +152,31 @@ Then open `http://localhost:3000`. The installation wizard meets you there.
 3. **WhatsApp (Wati)** — corrects the endpoint automatically when the tenant id is missing, and shows your connected WhatsApp numbers and contact count.
 4. **AI** — tells a bad key apart from a key with no credit (a different problem with a different fix) and lists the available models.
 5. **Your business** — website URL plus a description. The system reads your site, builds the evaluation profile, and **shows it to you for review**.
-6. **Administrator** — your email and password. Setup completes and the app is running, with no restart.
+6. **Account & data** — your email and password, then **how far back to import**:
+   everything available, or from a date you pick, with an option to pull the
+   WhatsApp conversation text too. Setup completes, the first import starts in
+   the background, and the app is running with no restart.
 
 Every field has a **"Where do I get this?"** panel: which page of the Meta App
 Dashboard holds the App Secret, where the Wati token lives, why a DeepSeek key
 fails without credit, and the literal SQL to create a database user.
+
+## How much history to import
+
+One question — "since when do you want data?" — sits on top of two very
+different sources:
+
+- **Meta** retains about 37 months of ad insights. "Everything available" means
+  exactly that; asking for an older date returns nothing extra.
+- **Wati** offers no date filter on the contact list at all, so the list is
+  always read whole. The date bounds the expensive half only: **which contacts
+  we pull the message thread for** — one request each, and by far the slowest
+  part of an import.
+
+Without the message text nothing gets scored: you have contacts and campaigns
+and no conversations. Change the range later under **Settings → How much
+history to import**; saving alone fetches nothing, so press "Import now" to
+fill in the extra period.
 
 ## Reviewing your business profile
 

@@ -97,10 +97,18 @@ describe("schema validation", () => {
     expect(r.repairs.join()).toMatch(/quoted nothing/);
   });
 
-  it("rejects a tag code claimed by two categories", () => {
+  it("resolves a tag claimed by two categories, and says which one lost it", () => {
+    // Dropping it from the later category is deterministic and lets the run
+    // continue, so it is a repair — reporting it as an error told the reviewer
+    // something was wrong without ever saying what had been done about it.
     const p = base();
     p.tags.categories[2].tags.push(["ENG_HOT", "Hot", "ساخن"]);
-    expect(validateProfile(p).errors.join()).toMatch(/appears in both/);
+    const r = validateProfile(p);
+    expect(r.errors).toEqual([]);
+    expect(r.repairs.join()).toMatch(/kept in "engagement", removed from "intent"/);
+    // ...and the tag exists exactly once afterwards.
+    const all = r.profile.tags.categories.flatMap((c) => c.tags.map((x) => x[0]));
+    expect(all.filter((c) => c === "ENG_HOT")).toHaveLength(1);
   });
 
   it("rejects an exclusive group naming a tag that does not exist", () => {

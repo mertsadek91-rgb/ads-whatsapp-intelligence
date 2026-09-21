@@ -28,7 +28,7 @@ vi.mock("../src/lib/meta.js", () => ({
   countryDaily: vi.fn(async () => [{ date: "2026-07-01", country: "SA", spend: 8, impressions: 80, clicks: 2, ctr: 2.5, cpc: 4, cpm: 100 }]),
 }));
 
-vi.mock("../src/config.js", () => ({ default: { meta: { periodSince: "2026-01-01" } } }));
+vi.mock("../src/config.js", () => ({ default: { meta: { lookbackDays: 120 }, data: { since: "2026-01-01" } } }));
 
 const { ingestMeta } = await import("../src/ingest/ingestMeta.js");
 

@@ -102,8 +102,24 @@ export const config = {
     accountId: (E.META_AD_ACCOUNT_ID || "").replace("act_", ""),
     lookbackDays: num(E.META_LOOKBACK_DAYS, 120),
     apiVersion: E.META_API_VERSION || "v21.0",
-    // Earliest date the analytics tables cover. Empty = decided at install.
-    periodSince: E.PERIOD_SINCE || "",
+  },
+  // How much history to import — ONE decision covering both sources, because
+  // an operator thinks in terms of "since when do I want reports", not in terms
+  // of Meta's insights window and Wati's message API separately.
+  //
+  //   since: ""            -> everything each source will give us. Meta serves
+  //                           roughly 37 months of insights; Wati's contact
+  //                           list has no date filter and is always read whole.
+  //   since: "2026-01-01"  -> Meta insights from that date, and WhatsApp
+  //                           threads only for contacts created on or after it.
+  //
+  // PERIOD_SINCE is the old name for this and is still honoured.
+  data: {
+    since: E.DATA_SINCE || E.PERIOD_SINCE || "",
+    // Whether the import also pulls WhatsApp message threads. Off by default
+    // because it is by far the slowest part — one request per contact — but
+    // without it there is nothing for the AI to read: only contact records.
+    watiMessages: String(E.DATA_WATI_MESSAGES || "").toLowerCase() === "true",
   },
   deepseek: {
     apiKey: E.DEEPSEEK_API_KEY || "",

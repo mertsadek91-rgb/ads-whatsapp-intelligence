@@ -1,11 +1,14 @@
 // First-time backfill: ensure schema, load ALL Wati contacts + full Meta period.
-// CLI: node src/jobs/backfill.js [--meta-only] [--wati-only] [--messages]
+// CLI: node src/jobs/backfill.js [--meta-only] [--wati-only] [--messages|--no-messages]
+// How far back it reads comes from the configured data range (lib/dataRange.js).
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runScript, query } from "../db.js";
 import { ingestWati } from "../ingest/ingestWati.js";
 import { ingestMeta } from "../ingest/ingestMeta.js";
+import config from "../config.js";
+import { describeRange } from "../lib/dataRange.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -41,8 +44,15 @@ export async function ensureSchema() {
 
 export async function backfill(opts = {}) {
   await ensureSchema();
+  console.log(`[backfill] range: ${describeRange(config).en}`);
   if (!opts.metaOnly) {
-    await ingestWati({ incremental: false, messages: !!opts.messages });
+    // Message history defaults to the operator's own choice from setup, so the
+    // button in Settings and `npm run backfill` do the same thing. --messages
+    // still forces it on for a one-off catch-up.
+    await ingestWati({
+      incremental: false,
+      messages: opts.messages !== undefined ? !!opts.messages : !!config.data.watiMessages,
+    });
   }
   if (!opts.watiOnly) {
     await ingestMeta({ full: true });
@@ -52,10 +62,13 @@ export async function backfill(opts = {}) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const a = process.argv.slice(2);
+  const { bootstrapCli } = await import("../lib/bootstrapCli.js");
+  await bootstrapCli();
   backfill({
     metaOnly: a.includes("--meta-only"),
     watiOnly: a.includes("--wati-only"),
-    messages: a.includes("--messages"),
+    ...(a.includes("--messages") ? { messages: true }
+      : a.includes("--no-messages") ? { messages: false } : {}),
   }).then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
 }
 
