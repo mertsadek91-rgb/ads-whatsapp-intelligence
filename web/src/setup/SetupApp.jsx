@@ -9,7 +9,7 @@
 // done plus the saved non-secret values, with secrets masked. Nothing about the
 // install is kept in browser storage.
 import { useEffect, useState } from "react";
-import setupApi, { setInstallToken, setClaimId } from "./setupApi.js";
+import setupApi, { setInstallToken, setClaimId, getClaimId } from "./setupApi.js";
 import { Field, TestResult, StepActions } from "./SetupUI.jsx";
 import ProfileReview from "./ProfileReview.jsx";
 
@@ -76,12 +76,23 @@ export default function SetupApp() {
 
   useEffect(() => { refresh(); }, []);
 
+  /**
+   * Claim the installer once, then stop asking.
+   *
+   * This used to claim before EVERY action, so the first one succeeded and the
+   * second was refused — the wizard told the operator that "someone else"
+   * had the installer, quoting their own address back at them. The server now
+   * treats a re-claim by the same holder as a no-op too, but not asking again
+   * is the honest version: we already hold it.
+   */
   async function claimIfNeeded() {
+    if (getClaimId()) return true;
     const r = await setupApi.claim();
     if (r.status === 401) { setTokenPrompt(true); return false; }
     if (r.status === 409) {
-      setResult({ ok: false, ar: `شخص آخر بدأ التنصيب من ${r.data.claimedFrom}`,
-        en: `Someone else started the installer from ${r.data.claimedFrom}` });
+      setResult({ ok: false, code: "SETUP_IN_PROGRESS",
+        ar: `معالج التنصيب مفتوح بالفعل من ${r.data.claimedFrom}. إن كنت أنت، أعِد تحميل الصفحة؛ وإلا انتظر حتى ينتهي.`,
+        en: `The installer is already open from ${r.data.claimedFrom}. If that is you, reload the page; otherwise wait until it finishes.` });
       return false;
     }
     if (r.data?.claimId) setClaimId(r.data.claimId);

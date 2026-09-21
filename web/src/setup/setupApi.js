@@ -9,6 +9,7 @@ let claimId = "";
 export function setInstallToken(t) { installToken = String(t || "").trim(); }
 export function getInstallToken() { return installToken; }
 export function setClaimId(id) { claimId = String(id || ""); }
+export function getClaimId() { return claimId; }
 
 async function req(method, path, body) {
   const headers = { "Accept-Language": document.documentElement.lang || "ar" };

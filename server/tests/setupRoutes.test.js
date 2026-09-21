@@ -125,6 +125,47 @@ describe("one operator at a time", () => {
     expect(r.body.claimedFrom).toBe("192.0.2.5");
   });
 
+  it("lets the SAME operator re-claim, which is what every step does", () => {
+    // The bug this pins: the wizard claims before every action. Treating the
+    // second claim as a conflict told the operator that "someone else" held the
+    // installer — quoting their own address back at them — and made it
+    // impossible to get past the first step.
+    const first = claim({ ip: "127.0.0.1" });
+    expect(first.ok).toBe(true);
+
+    const again = claim({
+      ip: "127.0.0.1",
+      get: (h) => (String(h).toLowerCase() === "x-setup-claim" ? first.claim.id : undefined),
+    });
+    expect(again.ok).toBe(true);
+    expect(again.reused).toBe(true);
+    expect(again.claim.id).toBe(first.claim.id);   // same claim, not a new one
+  });
+
+  it("recognises the holder by cookie too, so a page reload is not a lockout", () => {
+    // The client loses its copy of the id on reload but keeps the httpOnly
+    // cookie, which is the only thing identifying it as the same operator.
+    const first = claim({ ip: "127.0.0.1" });
+    const afterReload = claim({ ip: "127.0.0.1", cookies: { setup_claim: first.claim.id } });
+    expect(afterReload.ok).toBe(true);
+    expect(afterReload.claim.id).toBe(first.claim.id);
+  });
+
+  it("still refuses a DIFFERENT operator", () => {
+    const first = claim({ ip: "127.0.0.1" });
+    const other = claim({ ip: "10.0.0.9", cookies: { setup_claim: "not-the-right-id" } });
+    expect(other.ok).toBe(false);
+    expect(other.claim.id).toBe(first.claim.id);
+  });
+
+  it("keeps a re-claimed installer from ageing out mid-install", () => {
+    const first = claim({ ip: "127.0.0.1" });
+    state.writeState({ claim: { ...state.readState().claim, at: Date.now() - 50 * 60 * 1000 } });
+    claim({ ip: "127.0.0.1", cookies: { setup_claim: first.claim.id } });
+    // Touching it on each step means a long install does not expire under them.
+    expect(Date.now() - state.readState().claim.at).toBeLessThan(5000);
+  });
+
   it("stops blocking once an abandoned claim ages out", () => {
     claim({ ip: "192.0.2.5" });
     const stale = state.readState().claim;

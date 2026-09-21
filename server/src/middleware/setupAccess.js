@@ -90,6 +90,11 @@ export function activeClaim(s = state.readState()) {
   return c;
 }
 
+/** The claim id this request is presenting, if any. */
+export function presentedClaim(req) {
+  return req.get?.("x-setup-claim") || req.cookies?.setup_claim || req.body?.claimId || null;
+}
+
 /**
  * One operator at a time. Two people running the wizard against the same box
  * would interleave saves and produce a half-configured install, so the first
@@ -98,6 +103,17 @@ export function activeClaim(s = state.readState()) {
 export function claim(req, { takeover = false } = {}) {
   const s = state.readState();
   const existing = activeClaim(s);
+
+  // Re-claiming by the SAME operator is not a conflict — it is the normal case.
+  // The wizard calls this before every step, and a reload loses the client's
+  // copy of the id while keeping the httpOnly cookie. Treating that as "someone
+  // else has the installer" locked people out of their own install after the
+  // first successful action, reporting their own address back at them.
+  if (existing && presentedClaim(req) === existing.id) {
+    state.writeState({ claim: { ...existing, at: Date.now() } });  // keep it alive
+    return { ok: true, claim: existing, reused: true };
+  }
+
   if (existing && !takeover) {
     return { ok: false, claim: existing };
   }
@@ -110,8 +126,7 @@ export function claim(req, { takeover = false } = {}) {
 export function requireClaim(req, res, next) {
   const held = activeClaim();
   if (!held) return next();                       // nothing claimed yet — first writer wins
-  const given = req.get("x-setup-claim") || req.cookies?.setup_claim || req.body?.claimId;
-  if (given === held.id) return next();
+  if (presentedClaim(req) === held.id) return next();
   return res.status(409).json({
     error: "setup_in_progress",
     message: "شخص آخر يشغّل معالج التنصيب الآن (someone else is running the setup wizard)",
@@ -121,4 +136,4 @@ export function requireClaim(req, res, next) {
 }
 
 export { isLocalRequest };
-export default { requireSetupAccess, isLocalRequest, requireNotInstalled, requireClaim, claim, ensureInstallToken, activeClaim };
+export default { requireSetupAccess, isLocalRequest, presentedClaim, requireNotInstalled, requireClaim, claim, ensureInstallToken, activeClaim };
