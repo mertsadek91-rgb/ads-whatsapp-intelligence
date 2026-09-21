@@ -47,7 +47,7 @@ const rows = CATEGORIES.map((c) => {
 
 const html = `<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8">
-<title>وسوم العملاء — المرجع الكامل · IST Markets Customer Tags Reference</title>
+<title>وسوم العملاء — المرجع الكامل · Customer Tags Reference</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root{--ink:#0F172A;--muted:#64748B;--line:#E2E8F0;--bg:#F8FAFC;--brand:#4F46E5}
@@ -81,7 +81,7 @@ const html = `<!doctype html>
 </style></head><body><div class="wrap">
 
 <h1>وسوم العملاء — المرجع الكامل</h1>
-<p class="lede" dir="ltr">IST Markets Customer Tags — full reference. ${TAG_INDEX.size} tags in ${CATEGORIES.length} categories
+<p class="lede" dir="ltr">Customer tags — full reference. ${TAG_INDEX.size} tags in ${CATEGORIES.length} categories
  (${sheet} from the cheat sheet + ${added} country tags added on top of it).</p>
 
 <div class="cards">

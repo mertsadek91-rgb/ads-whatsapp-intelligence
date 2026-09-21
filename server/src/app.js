@@ -75,6 +75,19 @@ app.get("/api/health", async (req, res) => {
 
 app.use("/api/setup", setupRoutes);
 
+// The login screen has to render the installation’s own name and colour
+// before anyone has signed in, so a deliberately minimal subset of the app
+// identity is public. It carries no configuration and no credentials.
+app.get("/api/identity", async (req, res) => {
+  try {
+    const { getIdentity, publicIdentity } = await import("./lib/appIdentity.js");
+    res.json(publicIdentity(await getIdentity()));
+  } catch {
+    const { DEFAULT_IDENTITY, publicIdentity } = await import("./lib/appIdentity.js");
+    res.json(publicIdentity(DEFAULT_IDENTITY));   // never block the login page
+  }
+});
+
 // ---- Everything else goes through the swappable router -------------------
 app.use("/api", (req, res, next) => runtimeRouter(req, res, next));
 

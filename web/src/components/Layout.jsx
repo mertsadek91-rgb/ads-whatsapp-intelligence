@@ -7,6 +7,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import api from "../api.js";
 import { useI18n } from "../i18n.jsx";
 import { useCurrency } from "../currency.jsx";
+import { useIdentity, brandName, brandTagline } from "../identity.jsx";
 import UpdateControls from "./UpdateControls.jsx";
 
 const I = {
@@ -71,6 +72,7 @@ const GROUPS = [
 export default function Layout({ onLogout, role }) {
   const { t, lang, setLang } = useI18n();
   const { currency, setCurrency, currencies } = useCurrency();
+  const { identity } = useIdentity();
   const [drawer, setDrawer] = useState(false);
   const { pathname } = useLocation();
 
@@ -86,10 +88,10 @@ export default function Layout({ onLogout, role }) {
 
       <aside className={`sidebar ${drawer ? "open" : ""}`}>
         <div className="sidebar-brand">
-          <div className="brand-mark">IST</div>
+          <div className="brand-mark">{identity.monogram}</div>
           <div>
-            <h1>IST Markets</h1>
-            <div className="sub">{t("حملات Meta × واتساب")}</div>
+            <h1>{brandName(identity, lang)}</h1>
+            <div className="sub">{brandTagline(identity, lang) || t("حملات Meta × واتساب")}</div>
           </div>
         </div>
 

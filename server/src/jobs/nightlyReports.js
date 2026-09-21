@@ -18,6 +18,7 @@ import * as ds from "../lib/deepseek.js";
 import { isConfigured, sendOnce } from "../lib/mailer.js";
 import { htmlToPdf, buildEmployeeWeeklyHtml, buildEmployeeMonthlyHtml, closeBrowser } from "../lib/pdfReport.js";
 import { buildCampaignReportHtml } from "../lib/campaignReport.js";
+import { getIdentity, displayName } from "../lib/appIdentity.js";
 import { gatherEmployeeFollowup, buildFollowupEmailHtml } from "../lib/followupEmail.js";
 import { dubaiYmd } from "../lib/weeklyReports.js";
 import {
@@ -84,6 +85,12 @@ async function runNightlyInner({ force, now, reportsOnly, sendOverride, includeE
   console.log(`\n=== runNightly ${now.toISOString()}${reportsOnly ? " (reports-only)" : ""} ===`);
   const summary = { stages: {}, emails: { campaign: 0, employee: 0, skipped: 0, alerts: 0 } };
 
+  // Report headers and email subjects carry whatever this installation calls
+  // itself, rather than a company name compiled into the source.
+  const identity = await getIdentity();
+  const brand = displayName(identity, "ar");
+  const brandEn = displayName(identity, "en");
+
   // ---- 1. data stage (skipped for the manual reports-only trigger) ----
   if (reportsOnly) {
     summary.stages.data = "skipped (reports-only)";
@@ -112,7 +119,7 @@ async function runNightlyInner({ force, now, reportsOnly, sendOverride, includeE
     for (const to of alertTo) {
       const r = await sendOnce({
         kind: "alert", to, periodKey: weekWindows(now).cur.until, cc: gmCc.filter((e) => e !== to),
-        subject: "IST Markets — تنبيه: تعذّر توليد التقارير (الذكاء الاصطناعي غير متاح)",
+        subject: `${brand} — تنبيه: تعذّر توليد التقارير (الذكاء الاصطناعي غير متاح)`,
         text: "لم يعمل مفتاح الذكاء الاصطناعي، لذا لم تُولَّد تقارير الليلة. يُرجى التحقق من إعداد DEEPSEEK_API_KEY.",
         enabled, force,
       });
@@ -136,11 +143,11 @@ async function runNightlyInner({ force, now, reportsOnly, sendOverride, includeE
       const g = await gatherCampaignReport({ cadence, now, force });
       const attachments = [];
       for (const lang of ["ar", "en"]) {
-        const html = buildCampaignReportHtml(campaignReportData(g, lang));
+        const html = buildCampaignReportHtml({ ...campaignReportData(g, lang), brand: displayName(identity, lang) });
         // Landscape: the campaign report's hierarchy + country tables are wide.
         attachments.push({ filename: `campaigns-${cadence}-${g.key}-${lang}.pdf`, content: await htmlToPdf(html, { landscape: true }) });
       }
-      const subject = `IST Markets — تقرير الحملات ${CAD_AR[cadence]} ${g.key}`;
+      const subject = `${brand} — تقرير الحملات ${CAD_AR[cadence]} ${g.key}`;
       const text = `تقرير الحملات ${CAD_AR[cadence]} (${g.period.since} إلى ${g.period.until}) مقارنةً بالفترة السابقة، مرفق بالعربية والإنجليزية.`;
       for (const cm of rec.campaignManagers) {
         const r = await sendOnce({ kind: `campaign_${cadence}`, to: cm.email, periodKey: g.key,
@@ -160,14 +167,14 @@ async function runNightlyInner({ force, now, reportsOnly, sendOverride, includeE
         const g = await gatherEmployeeWeekly(emp.owner_name, { now, force });
         const attachments = [];
         for (const lang of ["ar", "en"]) {
-          const html = buildEmployeeWeeklyHtml(employeeReportData(g, lang));
+          const html = buildEmployeeWeeklyHtml({ ...employeeReportData(g, lang), brand: displayName(identity, lang) });
           attachments.push({
             filename: `report-${emp.owner_name}-${g.isoWeek}-${lang}.pdf`.replace(/[^\w.-]+/g, "_"),
             content: await htmlToPdf(html),
           });
         }
         const en = emp.lang === "en";
-        const subject = en ? `IST Markets — Your weekly report ${g.isoWeek}` : `IST Markets — تقريرك الأسبوعي ${g.isoWeek}`;
+        const subject = en ? `${brandEn} — Your weekly report ${g.isoWeek}` : `${brand} — تقريرك الأسبوعي ${g.isoWeek}`;
         const text = en
           ? `Your weekly performance report (${g.period.since} to ${g.period.until}) is attached in Arabic and English.`
           : `تقرير أدائك الأسبوعي (${g.period.since} إلى ${g.period.until}) مرفق بالعربية والإنجليزية.`;
@@ -190,14 +197,14 @@ async function runNightlyInner({ force, now, reportsOnly, sendOverride, includeE
         const g = await gatherEmployeeMonthly(emp.owner_name, { now, force });
         const attachments = [];
         for (const lang of ["ar", "en"]) {
-          const html = buildEmployeeMonthlyHtml(employeeMonthlyData(g, lang));
+          const html = buildEmployeeMonthlyHtml({ ...employeeMonthlyData(g, lang), brand: displayName(identity, lang) });
           attachments.push({
             filename: `monthly-${emp.owner_name}-${g.monthKey}-${lang}.pdf`.replace(/[^\w.-]+/g, "_"),
             content: await htmlToPdf(html),
           });
         }
         const en = emp.lang === "en";
-        const subject = en ? `IST Markets — Your monthly report ${g.monthKey}` : `IST Markets — تقريرك الشهري ${g.monthKey}`;
+        const subject = en ? `${brandEn} — Your monthly report ${g.monthKey}` : `${brand} — تقريرك الشهري ${g.monthKey}`;
         const text = en
           ? `Your monthly report for ${g.monthKey} (weekly progression + month-vs-month) is attached in Arabic and English.`
           : `تقريرك الشهري لشهر ${g.monthKey} (تطوّر الأسابيع + مقارنة الشهر بالسابق) مرفق بالعربية والإنجليزية.`;
@@ -225,8 +232,8 @@ async function runNightlyInner({ force, now, reportsOnly, sendOverride, includeE
       const en = emp.lang === "en";
       const html = buildFollowupEmailHtml(data, en ? "en" : "ar");
       const subject = en
-        ? `IST Markets — Follow-ups: ${c.urgent} urgent, ${c.interested} interested`
-        : `IST Markets — متابعة: ${c.urgent} عاجل، ${c.interested} مهتم`;
+        ? `${brandEn} — Follow-ups: ${c.urgent} urgent, ${c.interested} interested`
+        : `${brand} — متابعة: ${c.urgent} عاجل، ${c.interested} مهتم`;
       const text = en
         ? `${c.urgent} customers need contact before their WhatsApp window closes; ${c.interested} interested to nurture. See the details in this email.`
         : `${c.urgent} عميلاً يحتاجون تواصلاً قبل إغلاق نافذة واتساب؛ ${c.interested} مهتمّاً للمتابعة. التفاصيل في هذا البريد.`;

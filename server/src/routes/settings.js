@@ -5,6 +5,7 @@
 import { Router } from "express";
 import { query } from "../db.js";
 import { requireRole } from "../middleware/auth.js";
+import { getIdentity, saveIdentity } from "../lib/appIdentity.js";
 import { CURRENCIES, DEFAULT_RATES, sanitizeRates } from "../lib/currency.js";
 import { COUNTRIES } from "../lib/phoneCountry.js";
 import { isConfigured as smtpConfigured } from "../lib/mailer.js";
@@ -37,6 +38,11 @@ router.post("/currency", admin, wrap(async (req, res) => {
   );
   res.json({ currencies: CURRENCIES, rates });
 }));
+
+// ---- App identity: what this installation calls itself ----
+router.get("/identity", wrap(async (req, res) => res.json(await getIdentity({ fresh: true }))));
+
+router.post("/identity", admin, wrap(async (req, res) => res.json(await saveIdentity(req.body))));
 
 // ---- Employee directory for the nightly report emails ----
 const ISO2 = new Set(COUNTRIES.map((c) => c.iso2));

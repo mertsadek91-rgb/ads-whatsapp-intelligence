@@ -65,7 +65,7 @@ describe("who gets a row", () => {
   it("scores humans and never the bot or the unassigned bucket", async () => {
     state.leads = [
       lead({ owner: "Ihsan" }),
-      lead({ owner: "IST Markets Bot" }),
+      lead({ owner: "Support Bot" }),
       lead({ owner: "qualifier-flow" }),
       lead({ owner: null }),
       lead({ owner: "6f1c2ab9-1234-4aaa-bbbb-cccccccccccc" }),

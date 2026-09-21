@@ -26,7 +26,7 @@ beforeEach(() => { inserts.length = 0; deletes.length = 0; });
 describe("BUG-017 slice 2: wrap() persists route errors to ads_error_logs", () => {
   it("logs method/path/message/user and still answers 500", async () => {
     const app = express();
-    app.use((req, res, next) => { req.session = { email: "op@istmarkets.com" }; next(); });
+    app.use((req, res, next) => { req.session = { email: "op@example.com" }; next(); });
     app.get("/api/x", wrap(async () => { throw new Error("boom"); }));
 
     const res = await request(app).get("/api/x?secret=1");
@@ -40,7 +40,7 @@ describe("BUG-017 slice 2: wrap() persists route errors to ads_error_logs", () =
     expect(path).toBe("/api/x"); // query string stripped
     expect(message).toBe("boom");
     expect(stack).toMatch(/Error: boom/);
-    expect(email).toBe("op@istmarkets.com");
+    expect(email).toBe("op@example.com");
   });
 
   it("just ends the response (still logging) when headers were already sent", async () => {

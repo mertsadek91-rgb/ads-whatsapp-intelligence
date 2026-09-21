@@ -262,7 +262,7 @@ export default function SalesBoard({ data, updatedLabel, lang }) {
 
       <div className="footer">
         <span>{updatedLabel || ""}</span>
-        <span>{t("لوحة التحليلات الداخلية — IST Markets")}</span>
+        <span>{t("لوحة التحليلات الداخلية")}</span>
       </div>
     </div>
   );

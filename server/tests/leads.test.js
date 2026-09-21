@@ -47,23 +47,23 @@ beforeEach(() => { state.reviewRows.length = 0; state.eventRows.length = 0; });
 
 describe("BUG-025: PATCH /leads/:waId always attributes edits to the session, not the body", () => {
   it("uses the authenticated session's email as reviewed_by / changed_by", async () => {
-    const app = buildApp("manager@istmarkets.com");
+    const app = buildApp("manager@example.com");
     const res = await request(app)
       .patch("/leads/wa123")
       .send({ account_type: "real", deposit_total_aed: 500, review_status: "converted" });
 
     expect(res.status).toBe(200);
-    expect(state.reviewRows[0].reviewed_by).toBe("manager@istmarkets.com");
-    expect(state.eventRows[0].changed_by).toBe("manager@istmarkets.com");
+    expect(state.reviewRows[0].reviewed_by).toBe("manager@example.com");
+    expect(state.eventRows[0].changed_by).toBe("manager@example.com");
   });
 
   it("ignores a client-supplied reviewed_by impersonation attempt", async () => {
-    const app = buildApp("real-user@istmarkets.com");
+    const app = buildApp("real-user@example.com");
     await request(app)
       .patch("/leads/wa123")
       .send({ account_type: "real", reviewed_by: "someone-else@evil.com" });
 
-    expect(state.reviewRows[0].reviewed_by).toBe("real-user@istmarkets.com");
+    expect(state.reviewRows[0].reviewed_by).toBe("real-user@example.com");
     expect(state.reviewRows[0].reviewed_by).not.toBe("someone-else@evil.com");
   });
 

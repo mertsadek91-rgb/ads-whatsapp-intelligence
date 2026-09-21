@@ -36,7 +36,7 @@ vi.mock("../src/lib/broadcast.js", () => ({
 
 const router = (await import("../src/routes/broadcasts.js")).default;
 const app = express(); app.use(express.json());
-app.use((req, res, next) => { req.session = { email: "manager@istmarkets.com" }; next(); });
+app.use((req, res, next) => { req.session = { email: "manager@example.com" }; next(); });
 app.use("/broadcasts", router);
 
 beforeEach(() => {

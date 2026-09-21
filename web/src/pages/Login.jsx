@@ -1,9 +1,11 @@
 import { useState } from "react";
 import api from "../api.js";
 import { useI18n } from "../i18n.jsx";
+import { useIdentity, brandName, brandTagline } from "../identity.jsx";
 
 export default function Login({ onLogin }) {
   const { t, lang, setLang } = useI18n();
+  const { identity } = useIdentity();
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
@@ -26,8 +28,8 @@ export default function Login({ onLogin }) {
             {lang === "ar" ? "EN" : "عربي"}
           </button>
         </div>
-        <h1>IST Markets</h1>
-        <p>{t("لوحة الحملات والعملاء")}</p>
+        <h1>{brandName(identity, lang)}</h1>
+        <p>{brandTagline(identity, lang) || t("لوحة الحملات والعملاء")}</p>
         <input type="email" placeholder={t("البريد الإلكتروني")} value={email}
                onChange={(e) => setEmail(e.target.value)} autoFocus autoComplete="username" />
         <input type="password" placeholder={t("كلمة المرور")} value={pw}

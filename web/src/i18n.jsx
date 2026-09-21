@@ -885,7 +885,7 @@ const AR_TO_EN = {
   "غير مُسند / بوت": "Unassigned / Bot", "غير مُسند": "Unassigned",
   "لم يستلمها موظف بشري": "Not handled by a human agent",
   "على رقم غير مرتبط": "on an unlinked number",
-  "لوحة التحليلات الداخلية — IST Markets": "Internal analytics board — IST Markets",
+  "لوحة التحليلات الداخلية": "Internal analytics board",
   "هذه المحادثة على رقم واتساب ثانٍ غير مرتبط بالـ API — تُسحب البيانات الأساسية فقط دون محتوى الرسائل. أضِف توكن الرقم الثاني لعرض المحادثة.":
     "This chat is on a second WhatsApp number not linked to the API — only basic data is pulled, without message content. Add the second number's token to show the conversation.",
 
@@ -961,9 +961,11 @@ export function I18nProvider({ children }) {
     localStorage.setItem("lang", lang);
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-    document.title = lang === "ar"
-      ? "IST Markets — لوحة الحملات والعملاء"
-      : "IST Markets — Campaigns & Customers Dashboard";
+    // Title comes from the stored app identity; IdentityProvider refines it
+    // once loaded, so this is only the neutral default.
+    if (!document.title || /^(Analytics|لوحة التحليلات)/.test(document.title)) {
+      document.title = lang === "ar" ? "لوحة التحليلات" : "Analytics";
+    }
   }, [lang]);
   const t = (s, vars) => interpolate(lang === "ar" ? s : (AR_TO_EN[s] ?? s), vars);
   return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;

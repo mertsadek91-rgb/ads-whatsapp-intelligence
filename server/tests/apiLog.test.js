@@ -34,7 +34,7 @@ beforeEach(() => { inserts.length = 0; });
 
 describe("BUG-017: apiLog records method/path/status/user/duration for real requests", () => {
   it("logs a normal request with the session's email attributed", async () => {
-    const app = buildApp("agent@istmarkets.com");
+    const app = buildApp("agent@example.com");
     await request(app).get("/api/leads");
     await flush();
 
@@ -44,11 +44,11 @@ describe("BUG-017: apiLog records method/path/status/user/duration for real requ
     expect(method).toBe("GET");
     expect(path).toBe("/api/leads");
     expect(status).toBe(200);
-    expect(userEmail).toBe("agent@istmarkets.com");
+    expect(userEmail).toBe("agent@example.com");
   });
 
   it("does not log the high-frequency polling routes", async () => {
-    const app = buildApp("agent@istmarkets.com");
+    const app = buildApp("agent@example.com");
     await request(app).get("/api/admin/status");
     await request(app).get("/api/conversations/jobs-status");
     await flush();

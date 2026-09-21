@@ -16,10 +16,9 @@ import api from "../api.js";
 import { useI18n } from "../i18n.jsx";
 
 const STEP_KEYS = ["name", "channel", "template", "audience", "review"];
-const CHANNEL_LABELS = {
-  "971521057315": "Default",
-  "971561178629": "IST Markets English",
-};
+// Channel display names used to be hardcoded here as two real WhatsApp
+// numbers. The number itself is shown instead, which is correct for every
+// installation rather than only the one this was written for.
 const fmtDate = (d) => (d ? new Date(d).toLocaleString("en-GB") : "—");
 const STATUS_CLS = { done: "b-active", running: "b-warm", error: "b-issue", draft: "b-unknown" };
 
@@ -243,7 +242,7 @@ export default function Broadcasts() {
           <div className="tag-wrap">
             {(facets?.channels || []).map((c) => (
               <button key={c.ch} className={`tag-pill ${channel === c.ch ? "on" : ""}`} onClick={() => { setChannel(c.ch); setTemplateName(""); }}>
-                {CHANNEL_LABELS[c.ch] || "—"} <span dir="ltr">+{c.ch}</span> <b>{c.n}</b>
+                <span dir="ltr">+{c.ch}</span> <b>{c.n}</b>
               </button>
             ))}
           </div>

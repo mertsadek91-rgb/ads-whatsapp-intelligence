@@ -12,6 +12,7 @@ import {
   gatherEmployeeMonthly, employeeMonthlyData, availablePeriods, weekWindowFrom, monthWindowFrom,
 } from "../lib/weeklyReports.js";
 import { buildCampaignReportHtml } from "../lib/campaignReport.js";
+import { getIdentity, displayName } from "../lib/appIdentity.js";
 import { buildEmployeeWeeklyHtml, buildEmployeeMonthlyHtml, htmlToPdf } from "../lib/pdfReport.js";
 import { query } from "../db.js";
 import { wrap } from "../lib/wrap.js";
@@ -27,8 +28,8 @@ router.post("/send-test-email", wrap(async (req, res) => {
   if (!to) return res.status(400).json({ error: "أدخل بريداً للاختبار" });
   const now = new Date().toLocaleString("en-GB");
   const r = await sendMail({
-    to, subject: "IST Markets — بريد اختبار / Test email",
-    text: `هذا بريد اختبار من منصة IST Markets للتأكد من عمل الإرسال.\nThis is a test email confirming SMTP delivery works.\n\n${now}`,
+    to, subject: `${displayName(await getIdentity())} — بريد اختبار / Test email`,
+    text: `هذا بريد اختبار من منصة ${displayName(await getIdentity())} للتأكد من عمل الإرسال.\nThis is a test email confirming SMTP delivery works.\n\n${now}`,
   });
   res.json({ ok: !r.skipped, ...r });
 }));
@@ -68,7 +69,7 @@ router.get("/report/campaign.pdf", wrap(async (req, res) => {
   if (cadence === "weekly" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.week || "")) window = weekWindowFrom(req.query.week);
   if (cadence === "monthly" && /^\d{4}-\d{2}$/.test(req.query.month || "")) window = monthWindowFrom(req.query.month);
   const g = await gatherCampaignReport({ cadence, now: new Date(), force: false, window });
-  const pdf = await htmlToPdf(buildCampaignReportHtml(campaignReportData(g, lang)), { landscape: true });
+  const pdf = await htmlToPdf(buildCampaignReportHtml({ ...campaignReportData(g, lang), brand: displayName(await getIdentity(), lang) }), { landscape: true });
   sendPdf(res, pdf, `campaign-${cadence}-${g.key}-${lang}.pdf`);
 }));
 
@@ -79,7 +80,7 @@ router.get("/report/employee-weekly.pdf", wrap(async (req, res) => {
   const lang = asLang(req.query.lang);
   const window = /^\d{4}-\d{2}-\d{2}$/.test(req.query.week || "") ? weekWindowFrom(req.query.week) : null;
   const g = await gatherEmployeeWeekly(agent, { now: new Date(), force: false, window });
-  const pdf = await htmlToPdf(buildEmployeeWeeklyHtml(employeeReportData(g, lang)));
+  const pdf = await htmlToPdf(buildEmployeeWeeklyHtml({ ...employeeReportData(g, lang), brand: displayName(await getIdentity(), lang) }));
   sendPdf(res, pdf, `employee-weekly-${agent}-${g.isoWeek}-${lang}.pdf`.replace(/[^\w.-]+/g, "_"));
 }));
 
@@ -90,7 +91,7 @@ router.get("/report/employee-monthly.pdf", wrap(async (req, res) => {
   const lang = asLang(req.query.lang);
   const window = /^\d{4}-\d{2}$/.test(req.query.month || "") ? monthWindowFrom(req.query.month) : null;
   const g = await gatherEmployeeMonthly(agent, { now: new Date(), force: false, window });
-  const pdf = await htmlToPdf(buildEmployeeMonthlyHtml(employeeMonthlyData(g, lang)));
+  const pdf = await htmlToPdf(buildEmployeeMonthlyHtml({ ...employeeMonthlyData(g, lang), brand: displayName(await getIdentity(), lang) }));
   sendPdf(res, pdf, `employee-monthly-${agent}-${g.monthKey}-${lang}.pdf`.replace(/[^\w.-]+/g, "_"));
 }));
 

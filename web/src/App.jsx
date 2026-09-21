@@ -4,6 +4,7 @@ import api from "./api.js";
 import { DateRangeProvider } from "./components/DateRangeContext.jsx";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 import { CurrencyProvider } from "./currency.jsx";
+import { IdentityProvider, useIdentity, brandName } from "./identity.jsx";
 import Layout from "./components/Layout.jsx";
 import Login from "./pages/Login.jsx";
 
@@ -117,10 +118,26 @@ function AppInner() {
   );
 }
 
+/** Keeps the browser tab named after this installation, not the product. */
+function DocumentTitle() {
+  const { identity } = useIdentity();
+  const { lang } = useI18n();
+  useEffect(() => {
+    const name = brandName(identity, lang);
+    if (name) document.title = name;
+  }, [identity, lang]);
+  return null;
+}
+
 export default function App() {
   return (
     <I18nProvider>
-      <AppInner />
+      {/* Outside the auth gate on purpose: the login screen renders the
+          installation's own name and colour before anyone has signed in. */}
+      <IdentityProvider>
+        <DocumentTitle />
+        <AppInner />
+      </IdentityProvider>
     </I18nProvider>
   );
 }

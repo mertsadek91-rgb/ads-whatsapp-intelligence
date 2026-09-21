@@ -147,18 +147,18 @@ describe("firstResponse(): human reply latency", () => {
   it("passes ?channelPhoneNumber for a second-number contact and reads its messages", async () => {
     get.mockReturnValueOnce(ok({ result: "success", messages: { items: [
       { owner: false, created: "2026-07-24T04:00:00Z" }, { owner: true, created: "2026-07-24T04:05:00Z" }] } }));
-    const r = await wati.firstResponse("919101322807", "971561178629");
+    const r = await wati.firstResponse("919101322807", "971500000009");
     expect(r.n).toBe(2);
     expect(r.answered).toBe(true);
     // the connected number is selected via the channelPhoneNumber query param
     const [, opts] = get.mock.calls[0];
-    expect(opts.params).toEqual({ channelPhoneNumber: "971561178629" });
+    expect(opts.params).toEqual({ channelPhoneNumber: "971500000009" });
   });
 });
 
 describe("channelOf(): the connected business number", () => {
   it("reads the whatsapp_<number> custom param", () => {
-    expect(wati.channelOf({ customParams: [{ name: "whatsapp_971561178629", value: "971561178629" }] })).toBe("971561178629");
+    expect(wati.channelOf({ customParams: [{ name: "whatsapp_971500000009", value: "971500000009" }] })).toBe("971500000009");
   });
   it("returns null when no whatsapp_ param is present", () => {
     expect(wati.channelOf({ customParams: [{ name: "Full Name", value: "x" }] })).toBeNull();

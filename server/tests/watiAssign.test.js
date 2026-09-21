@@ -39,17 +39,17 @@ vi.mock("../src/db.js", () => ({
 const assignOperator = vi.fn(async () => state.assignResult);
 vi.mock("../src/lib/wati.js", () => ({
   assignOperator: (...a) => assignOperator(...a),
-  operatorEmailsOf: vi.fn(async () => ["agent@istmarkets.com"]),
+  operatorEmailsOf: vi.fn(async () => ["agent@example.com"]),
 }));
 
 const wa = await import("../src/lib/watiAssign.js");
 
 beforeEach(() => {
   calls.length = 0; state.logs = []; state.assignResult = { result: true };
-  state.employees = [{ owner_name: "Omar", wati_email: "omar@istmarkets.com", active: 1, countries: "[]" }];
+  state.employees = [{ owner_name: "Omar", wati_email: "omar@example.com", active: 1, countries: "[]" }];
   const fresh = new Date().toISOString();   // inside the 24h window
   state.contacts = { "9711": { contact_owner: null, business_channel: null, last_message_at: fresh },
-    "9712": { contact_owner: "Sara", business_channel: "971561178629", last_message_at: fresh } };
+    "9712": { contact_owner: "Sara", business_channel: "971500000009", last_message_at: fresh } };
   assignOperator.mockClear();
 });
 
@@ -76,7 +76,7 @@ describe("safety guards", () => {
 describe("assignMany", () => {
   it("assigns, passes the contact's channel, updates local owner, and logs 'sent'", async () => {
     const r = await wa.assignMany(["9712"], { toOwner: "Omar", performedBy: "admin" });
-    expect(assignOperator).toHaveBeenCalledWith("9712", "omar@istmarkets.com", "971561178629");
+    expect(assignOperator).toHaveBeenCalledWith("9712", "omar@example.com", "971500000009");
     expect(r).toMatchObject({ total: 1, sent: 1, failed: 0, skipped: 0 });
     const log = state.logs[0];
     expect(log[1]).toBe("Sara");                 // from_owner recorded for undo
@@ -126,7 +126,7 @@ describe("assignMany", () => {
     state.contacts["9711"].last_message_at = new Date(Date.now() - 30 * 3600e3).toISOString(); // expired
     const r = await wa.assignMany(["9711", "9712"], { toOwner: "Omar" });                      // 9712 fresh
     expect(assignOperator).toHaveBeenCalledTimes(1);
-    expect(assignOperator).toHaveBeenCalledWith("9712", "omar@istmarkets.com", "971561178629");
+    expect(assignOperator).toHaveBeenCalledWith("9712", "omar@example.com", "971500000009");
     expect(r).toMatchObject({ sent: 1, skipped: 1, failed: 0 });
   });
 
@@ -138,21 +138,21 @@ describe("assignMany", () => {
 
 describe("undoBatch", () => {
   it("restores previous owners and reports contacts that were unassigned before", async () => {
-    state.employees.push({ owner_name: "Sara", wati_email: "sara@istmarkets.com" });
+    state.employees.push({ owner_name: "Sara", wati_email: "sara@example.com" });
     // 9712 was Sara's, 9711 was unassigned
     await wa.assignMany(["9711", "9712"], { toOwner: "Omar", batchId: "B1" });
     assignOperator.mockClear();
     const u = await wa.undoBatch("B1");
     expect(u.restored).toBe(1);                       // only 9712 could go back
     expect(u.not_undoable).toEqual(["9711"]);         // was unassigned — can't un-assign without bot
-    expect(assignOperator).toHaveBeenCalledWith("9712", "sara@istmarkets.com", "971561178629");
+    expect(assignOperator).toHaveBeenCalledWith("9712", "sara@example.com", "971500000009");
   });
 });
 
 describe("assignableEmployees", () => {
   it("flags who can and cannot receive assignments", async () => {
     state.employees = [
-      { owner_name: "Omar", full_name: "Omar S", wati_email: "omar@istmarkets.com", active: 1, countries: "[]" },
+      { owner_name: "Omar", full_name: "Omar S", wati_email: "omar@example.com", active: 1, countries: "[]" },
       { owner_name: "Ghost", full_name: null, wati_email: null, active: 0, countries: null },
     ];
     const list = await wa.assignableEmployees();

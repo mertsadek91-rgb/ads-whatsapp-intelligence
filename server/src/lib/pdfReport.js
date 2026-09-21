@@ -182,7 +182,7 @@ export function buildReportHtml(data) {
   const body = `
   <div class="header">
     <div>
-      <div class="brand">IST Markets</div>
+      <div class="brand">${esc(data.brand || "")}</div>
       <h1>${esc(t.title)} — ${esc(agentLabel(data.agent, lang))}</h1>
     </div>
     <div class="meta">
@@ -412,7 +412,7 @@ export function buildEmployeeWeeklyHtml(data) {
 
   const body = `
   <div class="header">
-    <div><div class="brand">IST Markets</div><h1>${esc(t.title)} — ${esc(agentLabel(data.agent, lang))}</h1></div>
+    <div><div class="brand">${esc(data.brand || "")}</div><h1>${esc(t.title)} — ${esc(agentLabel(data.agent, lang))}</h1></div>
     <div class="meta">
       <div>${esc(t.thisWeek)}: ${fmtDate(data.period?.since)} ${esc(t.to)} ${fmtDate(data.period?.until)}</div>
       <div>${esc(t.generatedAt)}: ${fmtDateTime(data.generatedAt)}</div>
@@ -509,7 +509,7 @@ export function buildEmployeeMonthlyHtml(data) {
 
   const body = `
   <div class="header">
-    <div><div class="brand">IST Markets</div><h1>${esc(t.title)} — ${esc(agentLabel(data.agent, lang))}</h1></div>
+    <div><div class="brand">${esc(data.brand || "")}</div><h1>${esc(t.title)} — ${esc(agentLabel(data.agent, lang))}</h1></div>
     <div class="meta">
       <div>${esc(t.month)}: ${esc(data.monthKey)} (${fmtDate(data.month?.since)} ${lang === "en" ? "to" : "إلى"} ${fmtDate(data.month?.until)})</div>
       <div>${esc(t.generatedAt)}: ${fmtDateTime(data.generatedAt)}</div>

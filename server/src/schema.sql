@@ -1,4 +1,4 @@
--- IST Markets APP — MySQL schema (tables in connection DB, prefixed ads_). Idempotent.
+-- MySQL schema (tables in connection DB, prefixed ads_). Idempotent.
 
 create table if not exists ads_meta_daily (
     `date` date not null, level varchar(32) not null, entity_id varchar(191) not null,

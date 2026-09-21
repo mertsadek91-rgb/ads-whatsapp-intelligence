@@ -153,7 +153,7 @@ describe("rule tags", () => {
 
   it("tags the campaign only on an explicit keyword", () => {
     // The real campaign names in this account say nothing about audience.
-    expect(tagsOf({ campaign_name: "GCC IST MARKETS - WA - ARABIC" }).filter((x) => x.startsWith("CAMP_"))).toEqual([]);
+    expect(tagsOf({ campaign_name: "GCC BRAND - WA - ARABIC" }).filter((x) => x.startsWith("CAMP_"))).toEqual([]);
     expect(tagsOf({ campaign_name: "IB Partner Acquisition Q3" })).toContain("CAMP_IB_ACQ");
     expect(tagsOf({ campaign_name: "Winback dormant traders" })).toContain("CAMP_TRADER_REACTIVATION");
   });

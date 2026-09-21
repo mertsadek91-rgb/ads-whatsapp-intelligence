@@ -218,7 +218,7 @@ export function buildCampaignReportHtml(data) {
   const cadenceLabel = t[data.cadence] || t.weekly;
   const body = `
   <div class="header">
-    <div><div class="brand">IST Markets</div><h1>${esc(t.title)} — ${esc(cadenceLabel)}</h1><p class="muted small">${esc(cadenceLabel)} · ${esc(t.cadenceSub)}</p></div>
+    <div><div class="brand">${esc(data.brand || "")}</div><h1>${esc(t.title)} — ${esc(cadenceLabel)}</h1><p class="muted small">${esc(cadenceLabel)} · ${esc(t.cadenceSub)}</p></div>
     <div class="meta">
       <div>${F.fmtDate(data.period?.since)} ${esc(t.to)} ${F.fmtDate(data.period?.until)}</div>
       <div>${esc(t.generatedAt)}: ${F.fmtDateTime(data.generatedAt)}</div>
