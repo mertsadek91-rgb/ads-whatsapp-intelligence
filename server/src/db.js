@@ -69,10 +69,18 @@ function param(v) {
 
 /**
  * Batched upsert. rows = array of arrays aligned to cols.
- * conflictCols are the PK/unique cols. coalesceCols keep the existing value when
- * the incoming value is NULL (used by incremental runs).
+ * conflictCols are the PK/unique cols.
+ *
+ * Two ways to protect an existing value from a partial sync:
+ *   coalesceCols  — keep the existing value when the INCOMING value is NULL.
+ *                   Right for facts we simply did not fetch this run.
+ *   insertOnlyCols— write on INSERT, never on UPDATE. Right for a DERIVED value
+ *                   (a score) that we can still compute for a brand-new row but
+ *                   must not recompute from a partial input for an existing one,
+ *                   where COALESCE would not help because the value is not null,
+ *                   just worse.
  */
-export async function upsert(table, cols, rows, conflictCols, { coalesceCols = [], batch = 500 } = {}) {
+export async function upsert(table, cols, rows, conflictCols, { coalesceCols = [], insertOnlyCols = [], batch = 500 } = {}) {
   if (!rows.length) return 0;
   // dedup within the call by conflict key (keep last)
   const keyIdx = conflictCols.map((c) => cols.indexOf(c));
@@ -80,7 +88,8 @@ export async function upsert(table, cols, rows, conflictCols, { coalesceCols = [
   for (const r of rows) seen.set(keyIdx.map((i) => r[i]).join(""), r);
   const deduped = [...seen.values()];
 
-  const updateCols = cols.filter((c) => !conflictCols.includes(c));
+  const insertOnly = new Set(insertOnlyCols);
+  const updateCols = cols.filter((c) => !conflictCols.includes(c) && !insertOnly.has(c));
   const coalesce = new Set(coalesceCols);
   const setClause = updateCols
     .map((c) => (coalesce.has(c) ? `\`${c}\`=COALESCE(new.\`${c}\`, ${table}.\`${c}\`)` : `\`${c}\`=new.\`${c}\``))

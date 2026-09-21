@@ -32,6 +32,13 @@ export async function withLeaderLock(name, fn) {
   }
 }
 
+// D-7: MySQL GET_LOCK names live in a namespace scoped to the SERVER, not to a
+// schema. A fixed string meant two installs sharing one MySQL host each saw the
+// other's lock and skipped their own nightly run — reports just stopped for one
+// of them, logging nothing but "another instance already holds the lock".
+// Keying on the database name makes the lock per-install, as intended.
+const lockName = (job) => `${config.mysql.database}:${job}`;
+
 export function startScheduler() {
   if (!cron.validate(config.cronTime)) {
     console.warn(`[cron] invalid CRON_TIME "${config.cronTime}" — scheduler disabled`);
@@ -40,7 +47,7 @@ export function startScheduler() {
   cron.schedule(config.cronTime, async () => {
     if (running) return console.warn("[cron] previous run still going; skipping");
     running = true;
-    try { await withLeaderLock("ist-markets:daily-cron", () => runNightly()); }
+    try { await withLeaderLock(lockName("daily-cron"), () => runNightly()); }
     catch (e) { console.error("[cron] runNightly failed:", e.message); }
     finally { running = false; }
   }, { timezone: config.cronTimezone });
@@ -52,7 +59,7 @@ export function startScheduler() {
     cron.schedule(qc, async () => {
       if (quickRunning) return console.warn("[cron] previous quick-sync still going; skipping");
       quickRunning = true;
-      try { await withLeaderLock("ist-markets:quick-sync", () => runQuickSync()); }
+      try { await withLeaderLock(lockName("quick-sync"), () => runQuickSync()); }
       catch (e) { console.error("[cron] runQuickSync failed:", e.message); }
       finally { quickRunning = false; }
     }, { timezone: config.cronTimezone });

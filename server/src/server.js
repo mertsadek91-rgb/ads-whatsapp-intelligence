@@ -42,6 +42,15 @@ const app = express();
 const MySQLStore = MySQLStoreFactory(session);
 const sessionStore = new MySQLStore({ createDatabaseTable: false, schema: { tableName: "ads_sessions" } }, pool());
 
+// D-4: without this, req.ip is the reverse proxy for every request. Two things
+// then break silently: the 8/min login rate limiter in routes/auth.js keys on
+// req.ip, so ONE shared value throttles the whole company at once (and a
+// distributed brute force looks like normal traffic); and every ads_login_logs
+// / ads_api_logs row records the proxy address, making the audit trail useless.
+// Default 0 = trust nothing, which is correct when the app is exposed directly.
+// Set TRUST_PROXY_HOPS=1 behind a single reverse proxy (nginx, Caddy, Coolify).
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS || 0));
+
 app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
 app.use(session({
@@ -49,7 +58,17 @@ app.use(session({
   secret: config.auth.sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: "lax", maxAge: 7 * 24 * 3600 * 1000 },
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    // D-5: the session cookie was sent over plain HTTP even on an HTTPS
+    // deployment. This is deliberately coupled to the trust-proxy setting
+    // above: with secure:true and no trust proxy, Express sees
+    // req.protocol === "http" behind a TLS-terminating proxy and refuses to
+    // set the cookie at all, which breaks login. Fixing either alone is wrong.
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 7 * 24 * 3600 * 1000,
+  },
 }));
 
 // Public + protected API

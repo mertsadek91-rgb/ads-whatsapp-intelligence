@@ -12,7 +12,23 @@ export const WATI_COLS = [
   "score_reasons", "deposit_flag", "business_channel", "msg_unavailable", "country_iso2",
   "wati_contact_id", "allow_broadcast", "raw",
 ];
-const COALESCE = ["created_date", "created_at", "first_response_min", "num_messages", "last_message_at"];
+// Keep the stored value when this run did not fetch the fact (incoming NULL).
+// is_answered and msg_unavailable were missing here, so a `messages:false` run
+// — which is what a FULL backfill does by default — overwrote both with
+// null/0 for every contact that already had real values.
+const COALESCE = [
+  "created_date", "created_at", "first_response_min", "num_messages",
+  "last_message_at", "is_answered", "msg_unavailable",
+];
+
+// The lead score is DERIVED from the message facts above. When we did not fetch
+// them, scoreContact() falls through to its ingest-time branch and silently
+// loses answered(+4) and msgs(+8) — up to 12 points off 100, enough to move a
+// contact out of the hot (>=70) or warm (>=45) band. COALESCE cannot protect
+// these: the recomputed value is not null, just wrong. So on a partial run they
+// are written for brand-new rows (where a stage/attribution/recency score is
+// still better than nothing) and left untouched for existing ones.
+const SCORE_COLS = ["lead_score", "score_band", "score_reasons"];
 
 // Full attribute map from customParams (excludes the noisy per-contact whatsapp_<number>).
 function allAttributes(c) {
@@ -53,14 +69,17 @@ async function buildRow(c, wantMessages) {
     wati.field(c, "Contact Owner", "contact_owner", "owner", "assignedTo"),
     wati.field(c, "assignedTo", "assignee"), tags, allAttributes(c), fr, n, answered,
     c.lastMessageStatus, wati.toDate(last), wati.field(c, "CX Score", "cx_score"),
-    score, band, reasons, deposit, channel, unavailable ? 1 : 0,
+    score, band, reasons, deposit, channel, wantMessages ? (unavailable ? 1 : 0) : null,
     countryOf(c.phone || wati.field(c, "phone")).iso2 || null,
     c.id || null, c.allowBroadcast === false ? 0 : 1, c,
   ];
 }
 
-async function flush(rows) {
-  await upsert("ads_wati_contacts", WATI_COLS, rows, ["wa_id"], { coalesceCols: COALESCE });
+async function flush(rows, wantMessages) {
+  await upsert("ads_wati_contacts", WATI_COLS, rows, ["wa_id"], {
+    coalesceCols: COALESCE,
+    insertOnlyCols: wantMessages ? [] : SCORE_COLS,
+  });
   const attributed = rows.filter((r) => r[9]).length;
   console.log(`[wati] flushed ${rows.length} (${attributed} with source_ad_id)`);
 }
@@ -99,9 +118,9 @@ export async function ingestWati(opts = {}) {
     if (wati.field(c, "isMerged")) continue;
     const r = await buildRow(c, messages);
     if (r[0]) { rows.push(r); kept++; }
-    if (rows.length >= 500) { await flush(rows); rows = []; }
+    if (rows.length >= 500) { await flush(rows, messages); rows = []; }
   }
-  if (rows.length) await flush(rows);
+  if (rows.length) await flush(rows, messages);
   console.log(`[wati] scanned ${scanned}, upserted ${kept}`);
   return { scanned, kept };
 }
