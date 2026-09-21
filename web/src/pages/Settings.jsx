@@ -130,7 +130,7 @@ function DataRangeSection() {
   // from never having been built.
   if (loading || error || !data || !mode) {
     return (
-      <div className="section">
+      <div className="section" data-section="data-range">
         <h3>{t("مدى البيانات المستوردة")}</h3>
         {loading ? <p className="muted">{t("جارٍ التحميل…")}</p> : (
           <p className="bad">
@@ -155,7 +155,7 @@ function DataRangeSection() {
   }
 
   return (
-    <div className="section">
+    <div className="section" data-section="data-range">
       <h3>{t("مدى البيانات المستوردة")}</h3>
       <p className="muted" style={{ marginBottom: 12 }}>
         {t("يحدّد من أي تاريخ يقرأ النظام حملات Meta ومحادثات واتساب. الحالي")}: <b>{data.ar}</b>
