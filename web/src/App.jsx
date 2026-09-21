@@ -35,6 +35,7 @@ const SalesScreen = lazy(() => import("./pages/SalesScreen.jsx"));
 const QualityScreen = lazy(() => import("./pages/QualityScreen.jsx"));
 const Settings = lazy(() => import("./pages/Settings.jsx"));
 const Users = lazy(() => import("./pages/Users.jsx"));
+const BusinessProfile = lazy(() => import("./pages/BusinessProfile.jsx"));
 const SetupApp = lazy(() => import("./setup/SetupApp.jsx"));
 
 function AppInner() {
@@ -109,6 +110,7 @@ function AppInner() {
               <Route path="/broadcasts" element={<Broadcasts />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/users" element={<Users />} />
+              <Route path="/business-profile" element={<BusinessProfile />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Route>
           </Routes>

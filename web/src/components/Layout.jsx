@@ -64,6 +64,7 @@ const GROUPS = [
   ["النظام", [
     ["/report", "التقرير الشامل", I.report],
     ["/knowledge", "قاعدة المعرفة", I.book],
+    ["/business-profile", "ملف نشاط الشركة", I.book, ["admin"]],
     ["/users", "المستخدمون والصلاحيات", I.idcard, ["admin"]],
     ["/settings", "الإعدادات", I.cog, ["admin"]],
   ]],

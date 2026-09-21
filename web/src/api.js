@@ -32,6 +32,7 @@ export const api = {
   logout: () => req("POST", "/auth/logout"),
   get: (p) => req("GET", p),
   patch: (p, b) => req("PATCH", p, b),
+  put: (p, b) => req("PUT", p, b),
   post: (p, b) => req("POST", p, b),
   del: (p) => req("DELETE", p),
 };

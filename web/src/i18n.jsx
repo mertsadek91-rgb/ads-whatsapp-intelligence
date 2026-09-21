@@ -19,6 +19,41 @@ const AR_TO_EN = {
   "تقارير الموظفين": "Employee Reports",
   "الإعدادات": "Settings",
 
+
+  // ---- business profile ----
+  "ملف نشاط الشركة": "Business profile",
+  "هذا الملف يحدّد كيف يُقيَّم كل موظف وكل محادثة. أي تعديل هنا يسري على التحليلات القادمة.":
+    "This profile decides how every agent and every conversation is judged. Changes here apply to future analyses.",
+  "النسخة الحالية": "Current version",
+  "مصدرها": "Source",
+  "إصدار التقييم": "Policy version",
+  "نوع مخالفة": "issue types",
+  "وسم يستنتجه الذكاء الاصطناعي": "tags inferred by AI",
+  "الذكاء الاصطناعي": "AI",
+  "تحرير يدوي": "Edited by hand",
+  "افتراضية": "Default",
+  "{n} معلومة عن شركتك لم تُؤكَّد بعد. النظام يستخدمها للحكم على صحّة ما يقوله موظفوك.":
+    "{n} company facts are still unconfirmed. The system checks what your staff claim against them.",
+  "لديك مسوّدة غير مفعّلة. ما تراه أدناه هو المسوّدة، والنسخة الحالية ما زالت تعمل.":
+    "You have an unactivated draft. What you see below is the draft; the current version is still live.",
+  "لا يمكن التفعيل قبل إصلاح هذه:": "These must be fixed before activating:",
+  "فعّل هذه النسخة": "Activate this version",
+  "تجاهل المسوّدة": "Discard the draft",
+  "أعِد البناء من موقع الشركة": "Rebuild from the company website",
+  "التفعيل لا يعيد مراجعة المحادثات إلا إذا تغيّرت مفردات التقييم فعلاً — تغيير تسمية عربية لا يكلّف شيئاً.":
+    "Activating only re-analyses conversations when the evaluation vocabulary actually changed — renaming a label costs nothing.",
+  "النسخ السابقة": "Previous versions",
+  "النسخة": "Version",
+  "فُعّلت": "Activated",
+  "جارٍ…": "Working…",
+  "سيُعاد بناء المسوّدة من موقعك ويُستبدل ما عدّلته فيها. متابعة؟":
+    "The draft will be rebuilt from your website, replacing your edits. Continue?",
+  "تم بناء مسوّدة جديدة — راجعها قبل التفعيل": "A new draft was built — review it before activating",
+  "تم التفعيل. تغيّرت مفردات التقييم، لذا ستُعاد مراجعة المحادثات الأخيرة تلقائياً.":
+    "Activated. The evaluation vocabulary changed, so recent conversations will be re-analysed automatically.",
+  "تم التفعيل. لم تتغيّر مفردات التقييم، فلن تُعاد مراجعة أي محادثة.":
+    "Activated. The evaluation vocabulary did not change, so nothing will be re-analysed.",
+
   // ---- users & permissions ----
   "المستخدمون والصلاحيات": "Users & Permissions",
   "الحسابات": "Accounts",

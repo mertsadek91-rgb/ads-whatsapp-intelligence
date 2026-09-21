@@ -39,6 +39,7 @@ import tagRoutes from "./routes/tags.js";
 import broadcastsRoutes from "./routes/broadcasts.js";
 import qualityReviewRoutes from "./routes/qualityReview.js";
 import publicBoardRoutes from "./routes/publicBoard.js";
+import businessProfileRoutes from "./routes/businessProfile.js";
 import setupRoutes from "./routes/setup.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -143,6 +144,8 @@ export function buildApiRouter() {
   r.use("/admin", requireRole("admin"), adminRoutes);
   r.use("/meta", requireRole("admin"), metaAuthRoutes);
   r.use("/users", requireRole("admin"), usersRoutes);
+  // These values decide how every employee is scored, so admin only.
+  r.use("/business-profile", requireRole("admin"), businessProfileRoutes);
   r.use("/assignment", requireRole("admin", "manager"), assignmentRoutes);
   r.use("/broadcasts", requireRole("admin"), broadcastsRoutes);
 
