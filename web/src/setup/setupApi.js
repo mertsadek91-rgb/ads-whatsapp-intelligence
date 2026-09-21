@@ -38,6 +38,8 @@ export const setupApi = {
   migrate: () => req("POST", "/db/migrate", {}),
   generateProfile: (body) => req("POST", "/business/generate", body),
   approveProfile: (profile) => req("POST", "/business/approve", { profile }),
+  skip: (step) => req("POST", `/${step}/skip`, {}),
+  fetchBusiness: (body) => req("POST", "/business/fetch", body),
   finish: (body) => req("POST", "/finish", body),
 };
 

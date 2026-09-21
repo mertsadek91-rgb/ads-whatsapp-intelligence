@@ -20,6 +20,17 @@ const AR_TO_EN = {
   "الإعدادات": "Settings",
 
 
+
+  // ---- onboarding checklist ----
+  "إكمال الإعداد": "Finish setting up",
+  "خطوات لم تُكمَل بعد": "steps not finished yet",
+  "إخفاء": "Hide",
+  "اكتمل {done} من {total}": "{done} of {total} done",
+  "التطبيق يعمل، وهذه تزيد ما يمكنه عرضه.": "the app works; these widen what it can show you.",
+  "إعداده الآن": "Set it up",
+  "المكتمل ({n})": "Completed ({n})",
+  "يحتاج إكمالها حساب مدير.": "An administrator account is needed to complete these.",
+
   // ---- business profile ----
   "ملف نشاط الشركة": "Business profile",
   "هذا الملف يحدّد كيف يُقيَّم كل موظف وكل محادثة. أي تعديل هنا يسري على التحليلات القادمة.":

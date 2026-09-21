@@ -19,7 +19,7 @@ import * as metaValidator from "../setup/validators/meta.js";
 import * as watiValidator from "../setup/validators/wati.js";
 import * as aiValidator from "../setup/validators/ai.js";
 import * as businessValidator from "../setup/validators/business.js";
-import { generateBusinessProfile } from "../lib/profileGen.js";
+import { generateBusinessProfile, fetchBusinessFromSite } from "../lib/profileGen.js";
 import * as businessProfile from "../lib/businessProfile.js";
 import { budgetRemaining } from "../lib/deepseek.js";
 import { redirectUri } from "../setup/validators/meta.js";
@@ -27,6 +27,13 @@ import { redirectUri } from "../setup/validators/meta.js";
 const router = Router();
 
 export const STEPS = ["db", "meta", "wati", "ai", "business", "finish"];
+
+// Only two things genuinely cannot be deferred: somewhere to put the data,
+// and someone who can log in. Everything else can be connected later from the
+// Settings page, and forcing it up front just means credentials pasted in a
+// hurry to get past a screen.
+export const REQUIRED_STEPS = ["db", "finish"];
+export const SKIPPABLE = STEPS.filter((s) => !REQUIRED_STEPS.includes(s));
 
 // Set by server.js so the wizard can bring the app up without a restart.
 let activateRuntime = async () => {};
@@ -43,7 +50,11 @@ router.get("/status", (req, res) => {
     installed: false,
     steps: STEPS,
     completedSteps: s.completedSteps || [],
-    currentStep: STEPS.find((x) => !(s.completedSteps || []).includes(x)) || "finish",
+    skippedSteps: s.skippedSteps || [],
+    requiredSteps: REQUIRED_STEPS,
+    skippable: SKIPPABLE,
+    currentStep: STEPS.find((x) =>
+      !(s.completedSteps || []).includes(x) && !(s.skippedSteps || []).includes(x)) || "finish",
     // An operator who set MYSQL_URL in the environment owns it; the wizard
     // shows that step read-only rather than fighting their deployment.
     lockedByEnv: { mysql: !!process.env.MYSQL_URL, sessionSecret: !!process.env.SESSION_SECRET },
@@ -81,9 +92,13 @@ router.post("/claim", (req, res) => {
 router.use(requireClaim);
 
 const markComplete = (step) => {
-  const done = new Set(state.readState().completedSteps || []);
+  const s = state.readState();
+  const done = new Set(s.completedSteps || []);
   done.add(step);
-  state.writeState({ completedSteps: [...done] });
+  // Completing a step it was previously skipped clears the skip, so the
+  // post-install checklist does not keep nagging about something now done.
+  const skipped = (s.skippedSteps || []).filter((x) => x !== step);
+  state.writeState({ completedSteps: [...done], skippedSteps: skipped });
 };
 
 // A step may only be saved if its validator just passed, in this request.
@@ -180,6 +195,36 @@ router.post("/ai/save", testThenSave("ai", aiValidator.validate, async (body, re
 }));
 
 // ---- 5. Business definition -------------------------------------------------
+/**
+ * Read the company website and write the description for them.
+ *
+ * "Describe your business in 3-5 lines" is the field people stall on, and a
+ * thin description is the biggest single cause of a thin profile — the model
+ * has nothing to generalise from and starts inventing. The site already says
+ * what the business does.
+ *
+ * Returned as an editable draft, never applied silently: the operator knows
+ * things the website does not say.
+ */
+router.post("/business/fetch", async (req, res) => {
+  try {
+    const out = await fetchBusinessFromSite(req.body?.websiteUrl, {
+      language: req.body?.language === "en" ? "en" : "ar",
+    });
+    if (!out.ok) {
+      return res.status(400).json({
+        ok: false,
+        code: out.warnings.includes("SITE_BOT_BLOCKED") ? "SITE_BOT_BLOCKED" : "SITE_UNREACHABLE",
+        warnings: out.warnings,
+      });
+    }
+    res.json(out);
+  } catch (e) {
+    const code = /SITE_PRIVATE_ADDRESS/.test(e.message) ? "SITE_PRIVATE_ADDRESS" : "SITE_UNREACHABLE";
+    res.status(400).json({ ok: false, code, detail: e.message });
+  }
+});
+
 router.post("/business/test", justTest(businessValidator.validate));
 
 router.post("/business/save", testThenSave("business", businessValidator.validate, async (body) => {
@@ -257,6 +302,26 @@ router.post("/business/approve", async (req, res) => {
   }
 });
 
+/**
+ * Defer a step. Recorded separately from "completed" on purpose: the two mean
+ * different things afterwards, and the checklist shown after install needs to
+ * tell them apart.
+ */
+router.post("/:step/skip", (req, res) => {
+  const step = req.params.step;
+  if (!SKIPPABLE.includes(step)) {
+    return res.status(400).json({
+      ok: false,
+      detail: `لا يمكن تخطّي هذه الخطوة (${step} cannot be skipped)`,
+    });
+  }
+  const s = state.readState();
+  const skipped = new Set(s.skippedSteps || []);
+  skipped.add(step);
+  state.writeState({ skippedSteps: [...skipped] });
+  res.json({ ok: true, skippedSteps: [...skipped] });
+});
+
 // ---- 6. Finish --------------------------------------------------------------
 router.post("/finish", async (req, res) => {
   const email = String(req.body?.email || "").trim();
@@ -266,9 +331,25 @@ router.post("/finish", async (req, res) => {
   catch (e) { return res.status(400).json({ ok: false, detail: e.message }); }
 
   const s = state.readState();
-  const missing = ["db", "meta", "wati", "ai", "business"].filter((x) => !(s.completedSteps || []).includes(x));
-  if (missing.length) {
-    return res.status(400).json({ ok: false, detail: `خطوات غير مكتملة: ${missing.join(", ")}` });
+  // Only the genuinely required steps block finishing. The rest may be either
+  // done or explicitly deferred — but not silently absent, so nobody finishes
+  // setup without having seen and decided about every step.
+  const done = new Set(s.completedSteps || []);
+  const skipped = new Set(s.skippedSteps || []);
+  const missingRequired = REQUIRED_STEPS.filter((x) => x !== "finish" && !done.has(x));
+  if (missingRequired.length) {
+    return res.status(400).json({
+      ok: false,
+      detail: `خطوات إجبارية غير مكتملة: ${missingRequired.join(", ")}`,
+    });
+  }
+  const undecided = SKIPPABLE.filter((x) => !done.has(x) && !skipped.has(x));
+  if (undecided.length) {
+    return res.status(400).json({
+      ok: false,
+      detail: `خطوات لم تُكمَل ولم تُتخطَّ بعد: ${undecided.join(", ")}`,
+      undecided,
+    });
   }
 
   try {

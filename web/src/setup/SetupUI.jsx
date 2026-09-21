@@ -111,7 +111,7 @@ export function TestResult({ result, lang, onAction }) {
   );
 }
 
-export function StepActions({ lang, status, onTest, onSave, onBack, canSave, busy }) {
+export function StepActions({ lang, status, onTest, onSave, onBack, onSkip, canSave, busy }) {
   const t = (ar, en) => (lang === "en" ? en : ar);
   return (
     <div className="setup-actions">
@@ -126,6 +126,14 @@ export function StepActions({ lang, status, onTest, onSave, onBack, canSave, bus
       <button type="button" className="btn primary" onClick={onSave} disabled={busy || !canSave}>
         {t("حفظ ومتابعة", "Save and continue")}
       </button>
+      {/* Deferring is a first-class choice, not a hidden escape. Everything
+          except the database and the admin account can be connected later,
+          and forcing them now just means credentials pasted in a hurry. */}
+      {onSkip && (
+        <button type="button" className="btn ghost" onClick={onSkip} disabled={busy}>
+          {t("تخطّي الآن — أُكمله لاحقاً", "Skip for now — set up later")}
+        </button>
+      )}
       {!canSave && status !== "saved" && (
         <span className="setup-gate-note">
           {t("اختبر الاتصال بنجاح أولاً", "A successful test is required first")}

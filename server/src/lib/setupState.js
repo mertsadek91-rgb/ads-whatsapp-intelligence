@@ -29,6 +29,7 @@ const DEFAULTS = {
   installToken: null,
   claim: null,
   completedSteps: [],
+  skippedSteps: [],
   mysql: null,
   sessionSecret: null,
   secretKey: null,

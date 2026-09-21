@@ -9,6 +9,7 @@ import { useI18n } from "../i18n.jsx";
 import { useCurrency } from "../currency.jsx";
 import { useIdentity, brandName, brandTagline } from "../identity.jsx";
 import UpdateControls from "./UpdateControls.jsx";
+import OnboardingPanel from "./OnboardingPanel.jsx";
 
 const I = {
   dash: "M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z",
@@ -145,6 +146,9 @@ export default function Layout({ onLogout, role }) {
 
         <div className="page"><Outlet /></div>
       </main>
+
+      {/* Outside <main> so it stays put while the page scrolls. */}
+      <OnboardingPanel role={role} />
     </div>
   );
 }

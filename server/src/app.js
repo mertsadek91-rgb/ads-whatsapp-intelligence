@@ -138,6 +138,12 @@ export function buildApiRouter() {
   // on every page for every signed-in user. The read/write split lives inside
   // that router instead.
   r.use("/settings", requireAuth, settingsRoutes);
+  // What is still unconfigured. Any signed-in user may see it: the point is
+  // that nobody wonders why a board is empty.
+  r.get("/onboarding", requireAuth, async (req, res) => {
+    const { onboardingStatus } = await import("./lib/onboarding.js");
+    res.json(onboardingStatus());
+  });
 
   // Write surfaces. Conservative on purpose: admin unless there is a clear
   // day-to-day reason an operations manager needs it.

@@ -240,3 +240,83 @@ export async function generateBusinessProfile({ websiteUrl, description, languag
 }
 
 export default { generateBusinessProfile, BUDGET_RESERVE_USD };
+
+/**
+ * Read the company's website and write the business description FOR the
+ * operator, so the hardest field in the installer starts filled in.
+ *
+ * "Describe your business in 3-5 lines" is the step people stall on, and a
+ * thin description is the single biggest cause of a thin profile — the model
+ * has nothing to generalise from and starts inventing. The site already says
+ * what the business does; asking a human to retype it is asking them to do the
+ * worse job of the two.
+ *
+ * Returned as a DRAFT for editing, never applied silently: the operator knows
+ * things the website does not say, and the description is what the whole
+ * evaluation is built on.
+ *
+ * Degrades honestly without an AI key: the extracted page text is returned so
+ * there is still raw material to edit, clearly marked as not summarised.
+ */
+export async function fetchBusinessFromSite(websiteUrl, { language = "ar" } = {}) {
+  if (!websiteUrl) throw new Error("عنوان الموقع مطلوب (a website URL is required)");
+  const url = /^https?:\/\//i.test(websiteUrl) ? websiteUrl : `https://${websiteUrl}`;
+
+  const corpus = await fetchSiteCorpus(url);
+  const warnings = [...corpus.warnings];
+
+  if (!corpus.pages.length) {
+    return { ok: false, warnings, pages: [], draft: null };
+  }
+
+  const pagesRead = corpus.pages.map((p) => ({ url: p.url, title: p.title, chars: p.chars }));
+  const raw = corpus.pages.map((p) => `--- ${p.url} (${p.title}) ---\n${p.text}`).join("\n\n");
+
+  if (!ds.hasKey()) {
+    // No key: hand back what was actually read rather than nothing. Marked so
+    // the UI does not present raw page text as if it were a summary.
+    warnings.push("AI_KEY_MISSING");
+    return {
+      ok: true, warnings, pages: pagesRead, summarised: false,
+      draft: {
+        company_name: corpus.pages[0].title || "",
+        description: raw.slice(0, 1500),
+        audience: "",
+      },
+    };
+  }
+
+  const system = `You are reading a company's own website to describe what the business does,
+for someone setting up a system that will judge their sales conversations.
+
+Write the description in ${language === "en" ? "English" : "Arabic"}, in plain words, 4-8 lines. Cover, only where
+the site actually says so:
+  - what they sell or provide, specifically
+  - who their customers are
+  - what action they want a customer to take (book, buy, visit, request a quote)
+  - any limits, licences or obligations the site states
+
+Do not invent. If the site does not say who the customers are, leave audience
+empty rather than guessing. Do not write marketing copy — write what a new
+employee would need to know on their first day.
+
+Return JSON only:
+{"company_name":"..","description":"..","audience":"..","confidence":"high|medium|low",
+ "missing":["what the site did not tell you, in the same language"]}`;
+
+  const out = await ds.chatJSON(system, raw, "profilegen:site-summary");
+
+  return {
+    ok: true,
+    warnings,
+    pages: pagesRead,
+    summarised: true,
+    draft: {
+      company_name: String(out?.company_name || "").trim(),
+      description: String(out?.description || "").trim(),
+      audience: String(out?.audience || "").trim(),
+      confidence: out?.confidence || "medium",
+      missing: Array.isArray(out?.missing) ? out.missing : [],
+    },
+  };
+}

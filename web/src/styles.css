@@ -540,3 +540,42 @@ code{background:var(--surface-2);border:1px solid var(--border);border-radius:5p
 .setup-key{font-size:11px;color:var(--ink-muted);font-family:ui-monospace,monospace}
 .setup-tagcat{display:flex;align-items:center;gap:10px;padding:7px 0;border-block-end:1px solid var(--surface-1)}
 .setup-tagcat strong{flex:1}
+
+/* ---- Skipped step in the wizard rail ------------------------------------- */
+.setup-steps li.skipped{color:var(--ink-muted)}
+.setup-steps li.skipped .n{background:var(--warning-tint);color:var(--warning)}
+
+/* ===========================================================================
+   Onboarding checklist — bottom corner, after install
+   Sits in the inline-end corner so it follows RTL/LTR without a second rule.
+   =========================================================================== */
+.onboarding{position:fixed;inset-block-end:16px;inset-inline-end:16px;z-index:60;
+  inline-size:min(360px,calc(100vw - 32px));background:var(--canvas);
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-lg);font-size:13.5px;overflow:hidden}
+.onboarding header{display:flex;align-items:center;gap:8px;padding:10px 12px;
+  background:var(--surface-1);border-block-end:1px solid var(--border)}
+.onboarding-toggle{flex:1;display:flex;align-items:center;gap:8px;background:none;border:none;
+  padding:0;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;text-align:start}
+.onboarding-count{display:grid;place-items:center;inline-size:22px;block-size:22px;
+  border-radius:50%;background:var(--warning);color:#fff;font-size:12px;font-weight:700;flex:none}
+.onboarding-close{background:none;border:none;font-size:20px;line-height:1;
+  color:var(--ink-muted);cursor:pointer;padding:0 4px}
+.onboarding-body{padding:12px;max-block-size:min(52vh,420px);overflow-y:auto}
+.onboarding-progress{margin:0 0 10px;color:var(--ink-muted);line-height:1.7}
+.onboarding-body ul{list-style:none;margin:0;padding:0}
+.onboarding-body > ul > li{padding:9px 0;border-block-end:1px solid var(--surface-1)}
+.onboarding-body > ul > li:last-child{border-block-end:none}
+.onboarding-body strong{display:block;color:var(--ink)}
+.onboarding-body span{display:block;color:var(--ink-muted);line-height:1.7;margin-block:2px 4px}
+.onboarding-body a{color:var(--primary);font-weight:600}
+.onboarding-done{margin-block-start:10px;border-block-start:1px solid var(--border);padding-block-start:8px}
+.onboarding-done summary{cursor:pointer;color:var(--ink-muted)}
+.onboarding-done li{padding:4px 0;color:var(--ink-body)}
+.onboarding-done .tick{color:var(--success)}
+.onboarding-note{margin:10px 0 0;color:var(--ink-muted)}
+.onboarding.collapsed .onboarding-body{display:none}
+
+@media (max-width:520px){
+  .onboarding{inset-inline:12px;inline-size:auto}
+}

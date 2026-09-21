@@ -31,6 +31,8 @@ export default function SetupApp() {
   const [result, setResult] = useState(null);
   const [tested, setTested] = useState({});
   const [done, setDone] = useState([]);
+  const [skipped, setSkipped] = useState([]);
+  const [fetching, setFetching] = useState(false);
   const [tokenPrompt, setTokenPrompt] = useState(false);
   const [conflict, setConflict] = useState(null);   // another session holds the installer
   const [gen, setGen] = useState(null);      // the generated profile under review
@@ -58,6 +60,7 @@ export default function SetupApp() {
     setStatus(data);
     if (data.installed) return;
     setDone(data.completedSteps || []);
+    setSkipped(data.skippedSteps || []);
     setStep(data.currentStep || "db");
     // Re-populate what is safe to show, so a closed browser does not mean
     // starting over. Secrets come back masked and are never pre-filled.
@@ -168,6 +171,46 @@ export default function SetupApp() {
     } finally { setGenBusy(false); }
   }
 
+  /** Defer a step. Recorded so the checklist after install can show it. */
+  async function skipStep() {
+    setBusy(true); setResult(null);
+    try {
+      if (!(await claimIfNeeded())) return;
+      const { ok, data } = await setupApi.skip(step);
+      if (!ok) { setResult({ ok: false, ar: data.detail, en: data.detail }); return; }
+      await refresh();
+      const next = ORDER[ORDER.indexOf(step) + 1];
+      if (next) { setStep(next); setResult(null); }
+    } finally { setBusy(false); }
+  }
+
+  /**
+   * Read the company website and fill the description in from it.
+   * The operator then edits it — they know things the site does not say.
+   */
+  async function fetchFromSite() {
+    setFetching(true); setResult(null);
+    try {
+      if (!(await claimIfNeeded())) return;
+      const { ok, data } = await setupApi.fetchBusiness({
+        websiteUrl: form.business.websiteUrl, language: form.business.language });
+      if (!ok) { setResult(data); return; }
+      set("business", "description", data.draft.description || form.business.description);
+      setResult({
+        ok: true,
+        warnings: [
+          data.summarised
+            ? t(`قرأنا ${data.pages.length} صفحة وكتبنا الوصف — راجعه وعدّله`,
+                 `Read ${data.pages.length} pages and drafted the description — review and edit it`)
+            : t("لا يوجد مفتاح ذكاء اصطناعي، فوضعنا نصّ الموقع كما هو لتختصره بنفسك",
+                 "No AI key, so the raw page text was inserted for you to shorten yourself"),
+          ...(data.draft.missing || []),
+        ],
+      });
+      setTested((x) => ({ ...x, business: false }));
+    } finally { setFetching(false); }
+  }
+
   async function createDb() {
     setBusy(true);
     try {
@@ -209,9 +252,10 @@ export default function SetupApp() {
               className={[
                 s === step ? "current" : "",
                 done.includes(s) ? "done" : "",
-                !done.includes(s) && s !== step ? "locked" : "",
+                skipped.includes(s) ? "skipped" : "",
+                !done.includes(s) && !skipped.includes(s) && s !== step ? "locked" : "",
               ].join(" ").trim()}>
-              <span className="n">{done.includes(s) ? "✓" : i + 1}</span>
+              <span className="n">{done.includes(s) ? "✓" : skipped.includes(s) ? "–" : i + 1}</span>
               <span>{lang === "en" ? STEP_TITLES[s][1] : STEP_TITLES[s][0]}</span>
             </li>
           ))}
@@ -370,6 +414,19 @@ export default function SetupApp() {
           <>
             <Field field="business.websiteUrl" lang={lang} value={form.business.websiteUrl}
               onChange={(v) => set("business", "websiteUrl", v)} placeholder="https://example.com" />
+            <div className="setup-actions" style={{ marginBlockStart: 0 }}>
+              <button type="button" className="btn" disabled={fetching || !form.business.websiteUrl}
+                onClick={fetchFromSite}>
+                {fetching
+                  ? t("جارٍ قراءة الموقع…", "Reading the site…")
+                  : t("اقرأ الموقع واملأ الوصف تلقائياً", "Read the site and fill this in")}
+              </button>
+              <span className="setup-gate-note">
+                {t("سنقرأ صفحاتك ونكتب الوصف — ثم عدّله كما تشاء.",
+                   "We read your pages and draft the description — then you edit it.")}
+              </span>
+            </div>
+
             <Field field="business.description" lang={lang} value={form.business.description}
               onChange={(v) => set("business", "description", v)} textarea />
             {result?.ok && result.details && (
@@ -453,6 +510,7 @@ export default function SetupApp() {
         ) : (
           <StepActions lang={lang} status={step} busy={busy} canSave={canSave}
             onTest={runTest} onSave={runSave}
+            onSkip={(status?.skippable || []).includes(step) ? skipStep : null}
             onBack={ORDER.indexOf(step) > 0 ? () => { setStep(ORDER[ORDER.indexOf(step) - 1]); setResult(null); } : null} />
         )}
       </main>
