@@ -180,10 +180,16 @@ discover them in a report.
 
 ## Development
 
-```bash
-cd server && npm ci && npm test     # 815 tests
-cd web    && npm ci && npm test     # 106 tests
+On Windows use `cd /d` and one command per line — `cd` combined with `&&`
+across drives does not work in cmd.
+
+```bat
+cd /d <repo>\server
+npm ci
+npm test
 ```
+
+807 server tests and 106 web tests. See QUICKSTART.md for the full run-through.
 
 | Path | What it is |
 |---|---|

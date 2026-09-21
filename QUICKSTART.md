@@ -2,77 +2,153 @@
 
 <div dir="rtl">
 
-## الطريقة الأولى: Docker (الأسهل)
+> **ملاحظة للويندوز:** الأوامر أدناه مكتوبة لـ **cmd** و **PowerShell**.
+> في cmd لا تستخدم `&&` مع `cd` عبر أقراص مختلفة — استخدم `cd /d`.
+> وكل سطر أمر واحد، لا تلصق سطرين معاً.
 
-يشغّل كل شيء — قاعدة البيانات والتطبيق — بأمر واحد.
+## الطريقة الأولى: تشغيل محلي (الأسرع للتجربة)
+
+تحتاج **Node 20+** و**MySQL 8.0.19+** تعمل بالفعل.
+
+**الخطوة 1** — ثبّت الحزم (مرّة واحدة فقط):
 
 </div>
 
-```bash
-cd D:\Cloude\Wati-Ads-Reporter-Clean
+```bat
+cd /d D:\Cloude\Wati-Ads-Reporter-Clean\server
+```
 
-# 1. أنشئ ملف الإعدادات
-cp .env.example .env
+```bat
+npm ci
 ```
 
 <div dir="rtl">
 
-ثم افتح `.env` وضع قيمة لـ `SESSION_SECRET` فقط (الباقي يملؤه المعالج). لتوليدها:
+**الخطوة 2** — ابنِ الواجهة (مرّة واحدة فقط):
 
 </div>
 
-```bash
+```bat
+cd /d D:\Cloude\Wati-Ads-Reporter-Clean\web
+```
+
+```bat
+npm ci
+```
+
+```bat
+npm run build
+```
+
+<div dir="rtl">
+
+**الخطوة 3** — شغّل:
+
+</div>
+
+```bat
+cd /d D:\Cloude\Wati-Ads-Reporter-Clean\server
+```
+
+```bat
+npm start
+```
+
+<div dir="rtl">
+
+ثم افتح **http://localhost:3000** — سيستقبلك معالج التنصيب مباشرة.
+
+**لا تحتاج ملف `.env` إطلاقاً** في هذه الطريقة: المعالج يسأل عن كل شيء، ويولّد
+مفاتيح الأمان بنفسه ويحفظها في `server\data\setup.json`.
+
+لإيقاف الخادم: اضغط `Ctrl + C` في نفس النافذة.
+
+لتشغيله على منفذ آخر إن كان 3000 مشغولاً:
+
+</div>
+
+```bat
+set PORT=3100 && npm start
+```
+
+<div dir="rtl">
+
+---
+
+## الطريقة الثانية: Docker
+
+تشغّل قاعدة البيانات والتطبيق معاً، لكنها تتطلّب أن يكون **محرّك Docker يعمل فعلاً**.
+
+إن ظهر لك هذا الخطأ:
+
+</div>
+
+```
+open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified
+```
+
+<div dir="rtl">
+
+فالمحرّك لم يبدأ بعد. الحل:
+
+1. افتح **Docker Desktop** من قائمة ابدأ.
+2. انتظر حتى تتحوّل أيقونة الحوت في شريط المهام إلى **أخضر/ثابت** وتقول *Engine running*.
+3. أول مرّة قد يطلب الموافقة على الشروط أو تسجيل الدخول — أكمل ذلك.
+4. تحقّق بأمر:
+
+</div>
+
+```bat
+docker info
+```
+
+<div dir="rtl">
+
+فإن نجح، شغّل:
+
+</div>
+
+```bat
+cd /d D:\Cloude\Wati-Ads-Reporter-Clean
+```
+
+```bat
+copy .env.example .env
+```
+
+<div dir="rtl">
+
+ثم افتح `.env` وعدّل ثلاثة أسطر فقط:
+
+</div>
+
+```
+SESSION_SECRET=<الصق الناتج من الأمر التالي>
+MYSQL_PASSWORD=<كلمة مرور قوية>
+MYSQL_URL=mysql://app:<نفس كلمة المرور>@mysql:3306/ads_whatsapp
+```
+
+<div dir="rtl">
+
+لتوليد `SESSION_SECRET`:
+
+</div>
+
+```bat
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
 <div dir="rtl">
 
-وأضِف كلمات مرور قاعدة البيانات في نفس الملف:
+ثم:
 
 </div>
 
-```
-MYSQL_ROOT_PASSWORD=<كلمة مرور قوية>
-MYSQL_PASSWORD=<كلمة مرور قوية>
-MYSQL_URL=mysql://app:<نفس كلمة المرور السابقة>@mysql:3306/ads_whatsapp
-```
-
-```bash
-# 2. شغّل
+```bat
 docker compose up --build
 ```
 
 <div dir="rtl">
-
-ثم افتح **http://localhost:3000** — سيستقبلك معالج التنصيب.
-
-> إن كان Docker لا يعمل: افتح Docker Desktop وانتظر حتى تصبح الأيقونة خضراء
-> (قد يطلب تسجيل دخول أو تفعيل WSL2 في أول مرة).
-
----
-
-## الطريقة الثانية: تشغيل محلي بدون Docker
-
-تحتاج **Node 20+** و**MySQL 8.0.19+** تعمل بالفعل.
-
-</div>
-
-```bash
-# 1. ثبّت الحزم
-cd server && npm ci
-cd ../web && npm ci && npm run build
-
-# 2. شغّل الخادم
-cd ../server && npm start
-```
-
-<div dir="rtl">
-
-سيطبع الخادم في السجل رابط المعالج ورمز التنصيب. افتح الرابط، ولن تحتاج الرمز
-إن كنت على نفس الجهاز.
-
-لا تحتاج ملف `.env` إطلاقاً في هذه الطريقة — المعالج يسأل عن كل شيء ويولّد
-مفاتيح الأمان بنفسه ويحفظها في `server/data/setup.json`.
 
 ---
 
