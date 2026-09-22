@@ -1,6 +1,7 @@
 // BUG-002/SEC-2 fix: real per-user login (bcrypt + rate limit + lockout)
 // replacing the single shared APP_PASSWORD plaintext compare.
 import { Router } from "express";
+import { wrap } from "../lib/wrap.js";
 import rateLimit from "express-rate-limit";
 import * as users from "../lib/authUsers.js";
 
@@ -16,7 +17,7 @@ const loginLimiter = rateLimit({
   message: { error: "محاولات كثيرة جداً — حاول مرة أخرى بعد دقيقة." },
 });
 
-router.post("/login", loginLimiter, async (req, res) => {
+router.post("/login", loginLimiter, wrap(async (req, res) => {
   const email = String(req.body?.email || "").trim();
   const password = req.body?.password || "";
   const ip = req.ip;
@@ -47,7 +48,7 @@ router.post("/login", loginLimiter, async (req, res) => {
   req.session.role = user.role;
   users.touchLastLogin(user.id).catch(() => {});
   res.json({ ok: true, email: user.email, role: user.role });
-});
+}));
 
 /**
  * Change your own password. Until now there was none: createUser was reachable
@@ -59,7 +60,7 @@ router.post("/login", loginLimiter, async (req, res) => {
  * password, so without it an authenticated session is an offline-free oracle
  * for guessing it.
  */
-router.post("/change-password", loginLimiter, async (req, res) => {
+router.post("/change-password", loginLimiter, wrap(async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: "unauthorized" });
   const current = req.body?.current_password || "";
   const next = req.body?.new_password || "";
@@ -78,7 +79,7 @@ router.post("/change-password", loginLimiter, async (req, res) => {
 
   await users.setPassword(user.id, next);
   res.json({ ok: true });
-});
+}));
 
 router.post("/logout", (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));

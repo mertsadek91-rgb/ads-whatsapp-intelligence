@@ -43,7 +43,11 @@ export async function baseCurrency() {
     const r = await query("select v from ads_settings where k = ?", [KEY]);
     cached = clean(r[0]?.v) || DEFAULT;
   } catch {
-    cached = DEFAULT;      // before the schema exists, the default is correct
+    // Return the default WITHOUT caching it. Caching here pinned the process to
+    // AED for its whole life after one failed read — every figure afterwards
+    // labelled with the wrong currency, even once the database recovered and
+    // even though ads_settings said otherwise.
+    return DEFAULT;
   }
   return cached;
 }

@@ -49,6 +49,10 @@ export const HINTS = {
     ar: "إصدار MySQL قديم. التطبيق يستخدم صيغة INSERT ... AS new التي تتطلّب 8.0.19 أو أحدث.",
     en: "MySQL is too old. The app uses INSERT ... AS new, which needs 8.0.19 or newer.",
   },
+  DB_IS_MARIADB: {
+    ar: "هذا الخادم هو MariaDB لا MySQL. التطبيق يكتب بصيغة INSERT ... AS new التي أضافتها MySQL في 8.0.19 ولا تدعمها MariaDB بأي إصدار — فسيقرأ التطبيق بلا مشاكل وتفشل كل عمليات الحفظ. استخدم MySQL 8.0.19 أو أحدث.",
+    en: "This server is MariaDB, not MySQL. The app writes with INSERT ... AS new, added in MySQL 8.0.19 and not implemented in any MariaDB release — so reads would work and every save would fail. Use MySQL 8.0.19 or newer.",
+  },
   DB_NO_CREATE_PRIVILEGE: {
     ar: "المستخدم لا يملك صلاحية إنشاء الجداول، وخطوة إنشاء الجداول ستفشل في منتصفها.",
     en: "The user cannot create tables, so the schema step would fail halfway through.",

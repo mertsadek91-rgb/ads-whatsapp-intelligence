@@ -51,7 +51,20 @@ export default function SetupApp() {
   });
 
   const t = (ar, en) => (lang === "en" ? en : ar);
-  const set = (s, k, v) => setForm((f) => ({ ...f, [s]: { ...f[s], [k]: v } }));
+  /**
+   * Change a field — and forget that this step ever passed its test.
+   *
+   * The server re-runs the validator on save, against the body sent AT SAVE
+   * TIME. Without this, an operator could test successfully, adjust any field
+   * (picking a model from the AI dropdown, correcting a Wati endpoint), and
+   * still have Save enabled — the server would then validate the new value and
+   * refuse it. "The test says fine and then saving fails" was this, and only
+   * three of the fifteen inputs used to reset the flag.
+   */
+  const set = (s, k, v) => {
+    setForm((f) => ({ ...f, [s]: { ...f[s], [k]: v } }));
+    setTested((x) => (x[s] ? { ...x, [s]: false } : x));
+  };
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -68,7 +81,11 @@ export default function SetupApp() {
     // Re-populate what is safe to show, so a closed browser does not mean
     // starting over. Secrets come back masked and are never pre-filled.
     if (data.saved?.mysql) {
-      setForm((f) => ({ ...f, db: { ...f.db, ...data.saved.mysql, password: "" } }));
+      // The password is NOT overwritten. refresh() runs after every save and
+      // skip, and blanking it here while `done` kept Save enabled meant going
+      // back to the database step and saving posted an empty password — an
+      // access-denied error on credentials the operator had just watched work.
+      setForm((f) => ({ ...f, db: { ...f.db, ...data.saved.mysql, password: f.db.password } }));
     }
     setForm((f) => ({
       ...f,
@@ -115,6 +132,14 @@ export default function SetupApp() {
     if (getClaimId() && !takeover) return true;
     const r = await setupApi.claim(takeover);
     if (r.status === 401) { setTokenPrompt(true); return false; }
+    if (!r.ok && r.status !== 409) {
+      // Anything else — a 500, a 410 once installed, a proxy's 502 — used to
+      // fall through to "claimed" with no claim id, so every later request went
+      // out unauthenticated and the wizard carried on as if it held the
+      // installer. Stop here and say what happened.
+      setResult(r.data);
+      return false;
+    }
     if (r.status === 409) {
       // A held claim is usually the operator's own earlier session — a closed
       // browser, a restart, a stale record. Saying "someone else has it" and
@@ -128,11 +153,28 @@ export default function SetupApp() {
     return true;
   }
 
+  /**
+   * Route an authorisation failure from ANY endpoint to the UI that can fix it.
+   *
+   * tokenPrompt and conflict used to be set only from the /claim response, and
+   * claimIfNeeded short-circuits once a claim id exists — so if authorisation
+   * broke later (a lost cookie, a proxy that started adding x-forwarded-for),
+   * the operator got a red "install token required" box with no field to type
+   * one into. A dead end that only a page reload escaped.
+   */
+  function handleAuthFailure(r) {
+    if (r.status === 401) { setTokenPrompt(true); return true; }
+    if (r.status === 409) { setConflict(r.data?.claimedFrom || "?"); return true; }
+    return false;
+  }
+
   async function runTest() {
     setBusy(true); setResult(null);
     try {
       if (!(await claimIfNeeded())) return;
-      const { data } = await setupApi.test(step, form[step]);
+      const r = await setupApi.test(step, form[step]);
+      if (handleAuthFailure(r)) return;
+      const { data } = r;
       setResult(data);
       setTested((x) => ({ ...x, [step]: !!data.ok }));
       // The Meta test returns the ad accounts it can see; pre-select when
@@ -151,7 +193,9 @@ export default function SetupApp() {
     setBusy(true); setResult(null);
     try {
       if (!(await claimIfNeeded())) return;
-      const { data, ok } = await setupApi.save(step, form[step]);
+      const r = await setupApi.save(step, form[step]);
+      if (handleAuthFailure(r)) return;
+      const { data, ok } = r;
       setResult(data);
       if (!ok) return;
       if (step === "db") {
@@ -159,8 +203,12 @@ export default function SetupApp() {
         // the database step where the operator can still fix the grant.
         const m = await setupApi.migrate();
         if (!m.ok) { setResult(m.data); return; }
+        // (m.data.tables || []): a 200 whose body is not the JSON we expect —
+        // a proxy rewriting the response, say — used to throw here, inside an
+        // async handler, which silently abandoned the rest of the step.
+        const tables = (m.data.tables || []).length;
         setResult({ ok: true, warnings: [
-          t(`تم إنشاء ${m.data.tables.length} جدولاً`, `Created ${m.data.tables.length} tables`)] });
+          t(`تم إنشاء ${tables} جدولاً`, `Created ${tables} tables`)] });
       }
       await refresh();
       const next = ORDER[ORDER.indexOf(step) + 1];
@@ -244,10 +292,18 @@ export default function SetupApp() {
     setBusy(true); setResult(null);
     try {
       if (!(await claimIfNeeded())) return;
-      const { ok, data } = await setupApi.metaOauthStart({
+      const r = await setupApi.metaOauthStart({
         appId: form.meta.appId, appSecret: form.meta.appSecret });
-      if (!ok) { setResult(data); return; }
-      window.location.href = data.url;   // leaves the page; Facebook brings it back
+      if (handleAuthFailure(r)) return;
+      if (!r.ok || !r.data?.url) {
+        // Never navigate to `undefined`: a 200 without a url would otherwise
+        // send the operator to /undefined and lose the wizard entirely.
+        setResult(r.data?.url === undefined && r.ok
+          ? { ok: false, ar: "لم يُرجع الخادم رابط تسجيل الدخول", en: "The server returned no sign-in link" }
+          : r.data);
+        return;
+      }
+      window.location.href = r.data.url;   // leaves the page; Facebook brings it back
     } finally { setBusy(false); }
   }
 
@@ -282,7 +338,12 @@ export default function SetupApp() {
   }
   if (!status) return <div className="setup-loading">{t("جارٍ التحميل…", "Loading…")}</div>;
 
-  const canSave = !!tested[step] || done.includes(step);
+  // A completed step no longer counts as tested: coming back to it and pressing
+  // Save must re-prove the values currently in the form, not the ones that
+  // passed an hour ago. Meta additionally needs an ad account — the validator
+  // accepts none, because listing the accounts is what the test is for, but
+  // finishing without one leaves every report silently empty.
+  const canSave = !!tested[step] && !(step === "meta" && !form.meta.accountId);
 
   return (
     <div className="setup-shell">

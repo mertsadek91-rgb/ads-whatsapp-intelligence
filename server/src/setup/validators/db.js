@@ -17,7 +17,24 @@ import { sslOption, isTlsTrustError, normalizeSsl } from "../../lib/mysqlSsl.js"
 // fail on every single ingest, which is a much worse failure than refusing here.
 export const MIN_MYSQL = [8, 0, 19];
 
+/**
+ * MariaDB is not MySQL, and the version number says the opposite.
+ *
+ * MariaDB reports "10.6.16-MariaDB" or "11.4.2-MariaDB-log". Compared as
+ * numbers that is 10 or 11 against a minimum of 8, so it sails through a check
+ * written for MySQL — and then fails on every write the app makes, because the
+ * row-alias upsert form the whole data layer is built on (INSERT ... AS new
+ * ON DUPLICATE KEY UPDATE) is MySQL 8.0.19+ only and MariaDB has never
+ * implemented it.
+ *
+ * What that looks like without this check is the worst kind of failure: the
+ * database step passes, every dashboard read works, login works — the session
+ * store happens to use the older syntax — and every single save fails.
+ */
+export const isMariaDb = (versionString) => /mariadb/i.test(String(versionString || ""));
+
 export function versionAtLeast(versionString, min = MIN_MYSQL) {
+  if (isMariaDb(versionString)) return false;
   const m = String(versionString || "").match(/(\d+)\.(\d+)\.(\d+)/);
   if (!m) return false;
   const got = [Number(m[1]), Number(m[2]), Number(m[3])];
@@ -79,6 +96,10 @@ export async function validate(input) {
   try {
     const warnings = [];
     const [[ver]] = await c.query("select version() v");
+    // Two different refusals: one is "upgrade", the other is "this is not the
+    // product you think it is". Saying "too old" about MariaDB 11 would send an
+    // operator looking for an upgrade that does not exist.
+    if (isMariaDb(ver.v)) return fail("DB_IS_MARIADB", `server reports ${ver.v}`);
     if (!versionAtLeast(ver.v)) {
       return fail("DB_VERSION_TOO_OLD", `server reports ${ver.v}`);
     }

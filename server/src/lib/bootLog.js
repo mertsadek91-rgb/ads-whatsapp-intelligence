@@ -79,10 +79,18 @@ export function recordCrashes() {
     console.error("[fatal] uncaught exception:", e?.stack || e);
     process.exit(1);
   });
+  // Recorded, NOT fatal.
+  //
+  // Exiting here — which is also Node's own default — turns one unguarded await
+  // anywhere in the process into a site-wide outage: every in-flight request
+  // dies, the proxy in front answers 503, and the supervisor restarts into the
+  // same failure on the next attempt. A single request failing is recoverable;
+  // the whole application disappearing is not. An uncaught exception is
+  // different: the stack is already unwound and the process state is unknown,
+  // so that one still ends it.
   process.on("unhandledRejection", (e) => {
-    write(`FATAL unhandledRejection: ${e?.stack || e}`);
-    console.error("[fatal] unhandled rejection:", e?.stack || e);
-    process.exit(1);
+    write(`unhandledRejection (kept running): ${e?.stack || e}`);
+    console.error("[error] unhandled rejection — the process keeps serving:", e?.stack || e);
   });
 }
 

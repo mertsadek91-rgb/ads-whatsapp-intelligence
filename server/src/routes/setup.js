@@ -44,8 +44,33 @@ export function setActivator(fn) { activateRuntime = fn; }
 
 const mask = (v) => (v ? "••••" + String(v).slice(-4) : "");
 
+/**
+ * Every async route in this router, guarded.
+ *
+ * Express 4 does not catch a rejected promise returned by a handler, and this
+ * application has no terminal error middleware — so an unhandled rejection
+ * reaches process level, where Node's default behaviour (and this app's own
+ * crash recorder) ends the process. A failed database write during setup
+ * therefore did not produce a 500: it killed the server mid-request, the proxy
+ * in front saw the origin die and answered 503, and the next attempt hit a
+ * process that had just restarted and failed the same way. Two 503s in the
+ * browser console for one step is exactly that.
+ *
+ * Deliberately not lib/wrap.js: that one records the failure to a database
+ * table, and during setup most failures ARE failures to reach the database.
+ */
+const safe = (fn) => async (req, res, next) => {
+  try {
+    await fn(req, res, next);
+  } catch (e) {
+    console.error(`[setup] ${req.method} ${req.originalUrl} failed:`, e.stack || e.message);
+    if (res.headersSent) return res.end();
+    res.status(500).json({ ok: false, code: "UNKNOWN", detail: e.message });
+  }
+};
+
 // ---- Status: the only route that stays open once installed -----------------
-router.get("/status", async (req, res) => {
+router.get("/status", safe(async (req, res) => {
   if (state.isInstalled()) return res.json({ installed: true });
   const s = state.readState();
   // Whether signing in with Facebook already produced a token. Never the token
@@ -79,7 +104,7 @@ router.get("/status", async (req, res) => {
     },
     redirectUri: redirectUri(config.appBaseUrl),
   });
-});
+}));
 
 // Everything below requires the install token (or loopback) AND an unfinished install.
 router.use(requireNotInstalled, requireSetupAccess);
@@ -110,30 +135,33 @@ const markComplete = (step) => {
   state.writeState({ completedSteps: [...done], skippedSteps: skipped });
 };
 
+
 // A step may only be saved if its validator just passed, in this request.
 function testThenSave(step, validate, persist) {
-  return async (req, res) => {
+  return safe(async (req, res) => {
     let result;
     try { result = await validate(req.body || {}); }
     catch (e) { return res.status(500).json({ ok: false, code: "UNKNOWN", detail: e.message }); }
     if (!result.ok) return res.status(400).json(result);
+    // Inside the guard now. Persisting is the part that talks to MySQL, and it
+    // was the only part of this function left outside one.
     if (persist) await persist(req.body || {}, result);
     markComplete(step);
     res.json(result);
-  };
+  });
 }
 
-const justTest = (validate) => async (req, res) => {
+const justTest = (validate) => safe(async (req, res) => {
   try { res.json(await validate(req.body || {})); }
   catch (e) { res.status(500).json({ ok: false, code: "UNKNOWN", detail: e.message }); }
-};
+});
 
 // ---- 1. Database -----------------------------------------------------------
 router.post("/db/test", justTest(dbValidator.validate));
 
-router.post("/db/create-database", async (req, res) => {
+router.post("/db/create-database", safe(async (req, res) => {
   res.json(await dbValidator.createDatabase(req.body || {}));
-});
+}));
 
 router.post("/db/save", testThenSave("db", dbValidator.validate, async (body) => {
   const { normalizeSsl } = await import("../lib/mysqlSsl.js");
@@ -150,7 +178,7 @@ router.post("/db/save", testThenSave("db", dbValidator.validate, async (body) =>
 }));
 
 // Create every table. Safe to re-run: schema.sql is entirely `if not exists`.
-router.post("/db/migrate", async (req, res) => {
+router.post("/db/migrate", safe(async (req, res) => {
   try {
     const { ensureSchema } = await import("../jobs/backfill.js");
     const started = Date.now();
@@ -162,7 +190,7 @@ router.post("/db/migrate", async (req, res) => {
   } catch (e) {
     res.status(400).json({ ok: false, code: "DB_NO_CREATE_PRIVILEGE", detail: e.message });
   }
-});
+}));
 
 // ---- 2. Meta ---------------------------------------------------------------
 /**
@@ -179,7 +207,7 @@ router.post("/db/migrate", async (req, res) => {
  * session and no admin. It also stores its CSRF state on the session. Here the
  * state goes in setup.json, which is where everything else pre-database lives.
  */
-router.post("/meta/oauth/start", async (req, res) => {
+router.post("/meta/oauth/start", safe(async (req, res) => {
   const appId = String(req.body?.appId || "").trim();
   const appSecret = String(req.body?.appSecret || "").trim();
   if (!appId || !appSecret) {
@@ -196,7 +224,7 @@ router.post("/meta/oauth/start", async (req, res) => {
   const oauthState = crypto.randomBytes(16).toString("hex");
   state.writeState({ metaOauthState: oauthState });
   res.json({ ok: true, url: metaAuth.buildAuthUrl(oauthState), redirectUri: redirectUri(config.appBaseUrl) });
-});
+}));
 
 /**
  * Where Facebook sends the operator back.
@@ -212,11 +240,18 @@ router.post("/meta/oauth/start", async (req, res) => {
 export async function metaOauthCallback(req, res, next) {
   if (state.isInstalled()) return next();   // the real route owns it from here
 
-  const { code, state: returned, error, error_description } = req.query;
-  const expected = state.readState().metaOauthState;
-  state.writeState({ metaOauthState: null });   // single use, whatever happens
-
   const back = (params) => res.redirect(`/setup?${new URLSearchParams(params)}`);
+
+  const { code, state: returned, error, error_description } = req.query;
+  let expected = null;
+  try {
+    expected = state.readState().metaOauthState;
+    state.writeState({ metaOauthState: null });   // single use, whatever happens
+  } catch (e) {
+    // An unwritable DATA_DIR here would otherwise reject mid-redirect and leave
+    // the operator's browser hanging on the way back from Facebook.
+    return back({ meta: "error", msg: `تعذّر حفظ حالة التنصيب: ${e.message}` });
+  }
   if (error) return back({ meta: "error", msg: error_description || error });
   if (!code || !returned || !expected || returned !== expected) {
     return back({ meta: "error", msg: "انتهت صلاحية الطلب أو لا يطابق — أعِد المحاولة" });
@@ -242,17 +277,17 @@ async function withStoredToken(body) {
   return stored ? { ...body, token: stored } : body;
 }
 
-const metaTest = async (req, res) => {
+const metaTest = safe(async (req, res) => {
   try { res.json(await metaValidator.validate(await withStoredToken(req.body || {}))); }
   catch (e) { res.status(500).json({ ok: false, code: "UNKNOWN", detail: e.message }); }
-};
+});
 
 router.post("/meta/test", metaTest);
 
-router.post("/meta/save", async (req, res, next) => {
+router.post("/meta/save", safe(async (req, res, next) => {
   req.body = await withStoredToken(req.body || {});
   next();
-}, testThenSave("meta", metaValidator.validate, async (body) => {
+}), testThenSave("meta", metaValidator.validate, async (body) => {
   await appConfig.saveConfig({
     "meta.appId": body.appId || "",
     "meta.appSecret": body.appSecret || "",
@@ -299,7 +334,7 @@ router.post("/ai/save", testThenSave("ai", aiValidator.validate, async (body, re
  * Returned as an editable draft, never applied silently: the operator knows
  * things the website does not say.
  */
-router.post("/business/fetch", async (req, res) => {
+router.post("/business/fetch", safe(async (req, res) => {
   try {
     const out = await fetchBusinessFromSite(req.body?.websiteUrl, {
       language: req.body?.language === "en" ? "en" : "ar",
@@ -316,7 +351,7 @@ router.post("/business/fetch", async (req, res) => {
     const code = /SITE_PRIVATE_ADDRESS/.test(e.message) ? "SITE_PRIVATE_ADDRESS" : "SITE_UNREACHABLE";
     res.status(400).json({ ok: false, code, detail: e.message });
   }
-});
+}));
 
 router.post("/business/test", justTest(businessValidator.validate));
 
@@ -339,7 +374,7 @@ router.post("/business/save", testThenSave("business", businessValidator.validat
  * Nothing goes live here. The draft is stored for a human to review, because an
  * AI-written regulatory fact that nobody checked is worse than no fact at all.
  */
-router.post("/business/generate", async (req, res) => {
+router.post("/business/generate", safe(async (req, res) => {
   try {
     // Never let setup eat the day's analysis budget on its way in.
     const remaining = await budgetRemaining().catch(() => null);
@@ -380,10 +415,10 @@ router.post("/business/generate", async (req, res) => {
   } catch (e) {
     res.status(400).json({ ok: false, detail: e.message });
   }
-});
+}));
 
 /** Save the reviewed draft, then make it the live vocabulary. */
-router.post("/business/approve", async (req, res) => {
+router.post("/business/approve", safe(async (req, res) => {
   try {
     if (req.body?.profile) {
       await businessProfile.saveDraft(req.body.profile, { source: "human", createdBy: "setup" });
@@ -393,7 +428,7 @@ router.post("/business/approve", async (req, res) => {
   } catch (e) {
     res.status(400).json({ ok: false, detail: e.message });
   }
-});
+}));
 
 /**
  * Defer a step. Recorded separately from "completed" on purpose: the two mean
@@ -416,7 +451,7 @@ router.post("/:step/skip", (req, res) => {
 });
 
 // ---- 6. Finish --------------------------------------------------------------
-router.post("/finish", async (req, res) => {
+router.post("/finish", safe(async (req, res) => {
   const email = String(req.body?.email || "").trim();
   const password = req.body?.password || "";
   if (!email) return res.status(400).json({ ok: false, detail: "البريد الإلكتروني مطلوب" });
@@ -458,9 +493,17 @@ router.post("/finish", async (req, res) => {
     }, { updatedBy: "setup" });
 
     await users.createUser(email, password, "admin");
-    state.writeState({ installed: true, installedAt: new Date().toISOString(), claim: null });
-    // Swap the 503 router for the real API in this process — no restart.
+
+    // Activate BEFORE recording the install, not after.
+    //
+    // The other order bricks the box on any failure here — a schema that will
+    // not apply, a database that went away between two requests. `installed:
+    // true` is already on disk, so every /api/setup/* answers 410 already
+    // installed while the runtime router is still the 503 one: no wizard and no
+    // app, recoverable only by hand-editing setup.json on the server. Doing it
+    // this way, a failure leaves the wizard exactly where it was, retryable.
     await activateRuntime();
+    state.writeState({ installed: true, installedAt: new Date().toISOString(), claim: null });
 
     // Then fill the app with data. Without this an operator lands on empty
     // boards and has no way of knowing whether that means "still importing" or
@@ -475,7 +518,7 @@ router.post("/finish", async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, detail: e.message });
   }
-});
+}));
 
 export { ensureInstallToken, setKeyProvider };
 export default router;

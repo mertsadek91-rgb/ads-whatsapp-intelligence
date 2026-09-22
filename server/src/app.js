@@ -19,6 +19,8 @@ import config from "./config.js";
 import { pool } from "./db.js";
 import { healthCheck } from "./lib/health.js";
 import { apiLog } from "./middleware/apiLog.js";
+import { logError } from "./lib/errorLog.js";
+import { wrap } from "./lib/wrap.js";
 import { requireAuth, requireRole } from "./middleware/auth.js";
 import * as setupState from "./lib/setupState.js";
 import * as webBuild from "./lib/webBuild.js";
@@ -99,6 +101,17 @@ app.get("/api/identity", async (req, res) => {
 // ---- Everything else goes through the swappable router -------------------
 app.use("/api", (req, res, next) => runtimeRouter(req, res, next));
 
+// An unmatched API path answers JSON, not Express's default HTML.
+//
+// Without this, a typo'd or removed endpoint fell through to the SPA catch-all
+// and then to Express's final handler, which replies text/html — so the
+// browser's `fetch(...).then(r => r.json())` failed on a parse error instead of
+// showing what the server said. It also changed behaviour at the moment of
+// install: before, every unknown /api path answered a JSON 503; after, HTML.
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: "not_found", path: req.originalUrl.split("?")[0] });
+});
+
 /**
  * The real API, assembled only once a database exists — the session store needs
  * a live pool, so this cannot be built at import time.
@@ -147,10 +160,10 @@ export function buildApiRouter() {
   r.use("/settings", requireAuth, settingsRoutes);
   // What is still unconfigured. Any signed-in user may see it: the point is
   // that nobody wonders why a board is empty.
-  r.get("/onboarding", requireAuth, async (req, res) => {
+  r.get("/onboarding", requireAuth, wrap(async (req, res) => {
     const { onboardingStatus } = await import("./lib/onboarding.js");
     res.json(onboardingStatus());
-  });
+  }));
 
   // Write surfaces. Conservative on purpose: admin unless there is a clear
   // day-to-day reason an operations manager needs it.
@@ -195,6 +208,28 @@ app.get("*", (req, res, next) => {
     "The front end has not been built. Run \"npm run build\" in your deploy's build step.\n" +
     `Expected: ${webBuild.distDir}\n` +
     (s.error ? `\nLast build attempt failed:\n${s.error}\n` : ""));
+});
+
+// ---- The last word on any failure ----------------------------------------
+//
+// Express 4 does not catch rejected promises, but it DOES route synchronous
+// throws and explicit next(err) here — and until now there was nothing here, so
+// those became Express's default HTML error page: unparseable by the SPA,
+// uncacheable-header-less in front of a CDN, and invisible to ads_error_logs,
+// the table this application keeps specifically so an operator can see what
+// failed after the container has restarted.
+//
+// Four arguments, and `next` unused: that signature is how Express recognises
+// an error handler at all.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  try { logError(req, err); } catch { /* logging must never break the reply */ }
+  console.error(`[api] ${req.method} ${req.originalUrl}:`, err?.stack || err?.message || err);
+  if (res.headersSent) return res.end();
+  res.status(err?.status || 500).json({
+    error: err?.message || "internal error",
+    code: err?.code || undefined,
+  });
 });
 
 export default app;

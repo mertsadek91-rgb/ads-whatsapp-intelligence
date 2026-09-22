@@ -5,6 +5,7 @@
 //
 // Nothing here writes to Wati — reassignment lands in the next batch.
 import { Router } from "express";
+import { wrap } from "../lib/wrap.js";
 import { query } from "../db.js";
 import { streamCsv } from "../lib/csvStream.js";
 import { langOf, headers, cellMapper } from "../lib/reportI18n.js";
@@ -134,7 +135,7 @@ router.get("/breakdown", async (req, res) => {
 });
 
 /** The filtered list as CSV — for handing a work list to someone offline. */
-router.get("/export.csv", async (req, res) => {
+router.get("/export.csv", wrap(async (req, res) => {
   const f = buildFilter(req.query);
   const lang = langOf(req);
   const cols = ["wa_id", "full_name", "phone", "country_iso2", "contact_owner",
@@ -148,7 +149,7 @@ router.get("/export.csv", async (req, res) => {
     filename: lang === "en" ? "assignment-contacts.csv" : "إسناد-المحادثات.csv",
     filenameAscii: "assignment-contacts.csv",
   });
-});
+}));
 
 /** Dropdown facets + the assignable roster, in one call. */
 router.get("/facets", async (req, res) => {

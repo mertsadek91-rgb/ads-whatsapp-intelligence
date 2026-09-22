@@ -47,6 +47,24 @@ export function pool() {
       charset: "utf8mb4",
       waitForConnections: true,
       connectionLimit: 8,
+      // Fail fast rather than queue forever. With queueLimit 0 and no acquire
+      // timeout, eight connections stuck on a half-open TCP path put every
+      // later query in a queue nothing ever drains: query() never rejects, the
+      // handler never responds, nothing is logged, and a proxy in front turns
+      // the silence into 503. An error is recoverable; a hang is not.
+      queueLimit: 50,
+      connectTimeout: 10_000,
+      // maxIdle must be BELOW connectionLimit or mysql2 never schedules its
+      // idle reaper at all — so idleTimeout alone does nothing. Without the
+      // reaper, connections are kept indefinitely and the free list is LIFO, so
+      // a quiet pool rots behind a remote wait_timeout or a NAT idle drop and
+      // the next request inherits a dead socket.
+      maxIdle: 2,
+      idleTimeout: 30_000,
+      // The default keep-alive delay is the OS default — two hours on Linux,
+      // useless against a five-minute NAT timer.
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10_000,
       namedPlaceholders: false,
       dateStrings: false,
       // BUG-003 fix: without this, mysql2 defaults to the process/OS local

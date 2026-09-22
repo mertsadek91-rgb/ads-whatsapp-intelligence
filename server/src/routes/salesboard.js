@@ -3,6 +3,7 @@
 // wall-display link (/tv/<code>). The code is stored once and never changes on
 // its own — the owner picks an easy one to type on the TV.
 import { Router } from "express";
+import { wrap } from "../lib/wrap.js";
 import { randomBytes } from "crypto";
 import { query } from "../db.js";
 import { gatherSalesboard } from "../lib/salesboard.js";
@@ -82,25 +83,25 @@ router.post("/quality/backfill", (req, res) => {
 
 // Current kiosk code + shareable short path (auto-creates a short one on first
 // read so there's always a working link).
-router.get("/token", async (req, res) => {
+router.get("/token", wrap(async (req, res) => {
   let code = await getCode();
   if (!code) { code = shortCode(); await setCode(code); }
   res.json({ token: code, code, path: linkFor(code) });
-});
+}));
 
 // Set a CUSTOM easy-to-type code (stays fixed until changed again).
-router.post("/code", async (req, res) => {
+router.post("/code", wrap(async (req, res) => {
   const code = String(req.body?.code || "").trim();
   if (!CODE_RE.test(code)) return res.status(400).json({ error: "الرمز: 3–40 حرفاً/رقماً (إنجليزية، بدون فراغات)، يُسمح - و _" });
   await setCode(code);
   res.json({ token: code, code, path: linkFor(code) });
-});
+}));
 
 // Generate a fresh random short code (invalidates the old link).
-router.post("/token/rotate", async (req, res) => {
+router.post("/token/rotate", wrap(async (req, res) => {
   const code = shortCode();
   await setCode(code);
   res.json({ token: code, code, path: linkFor(code) });
-});
+}));
 
 export default router;

@@ -5,6 +5,7 @@
 // rotated from the admin page to invalidate an old link. Note: the board shows
 // employee names + aggregate counts only (no phone numbers / customer PII).
 import { Router } from "express";
+import { wrap } from "../lib/wrap.js";
 import { timingSafeEqual } from "crypto";
 import { query } from "../db.js";
 import { gatherSalesboard } from "../lib/salesboard.js";
@@ -27,11 +28,11 @@ async function checkToken(req, res) {
   return true;
 }
 
-router.get("/salesboard", async (req, res) => {
+router.get("/salesboard", wrap(async (req, res) => {
   if (!(await checkToken(req, res))) return;
   try { res.json(await gatherSalesboard({ days: Number(req.query.days) || 7 })); }
   catch (e) { res.status(500).json({ error: e.message }); }
-});
+}));
 
 /**
  * The quality board, for the wall screen. Same token, but the payload is
@@ -40,13 +41,13 @@ router.get("/salesboard", async (req, res) => {
  * behind the authenticated management route — a compliance quote on a screen the
  * whole floor can read would be a disciplinary notice, not a motivator.
  */
-router.get("/quality", async (req, res) => {
+router.get("/quality", wrap(async (req, res) => {
   if (!(await checkToken(req, res))) return;
   try {
     const board = await gatherQualityBoard({ days: Number(req.query.days) || 7 });
     res.json(publicView(board));
   } catch (e) { res.status(500).json({ error: e.message }); }
-});
+}));
 
 const PUBLIC_ROW_FIELDS = [
   "rank", "name", "leads", "contacted", "not_contacted", "interested", "qualified",

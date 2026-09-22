@@ -100,6 +100,31 @@ export async function activateRuntime() {
   console.log("[boot] runtime active.");
 }
 
+/**
+ * Boot the runtime, and mount the API even if part of it failed.
+ *
+ * activateRuntime() runs ensureSchema, then two hydrates, and only then swaps
+ * the router. Anything that throws — or merely hangs — before that swap left
+ * every /api/* path answering "503 setup_required" on an installed app, while
+ * /api/health kept replying 200 and the process looked entirely healthy. The
+ * operator is told to open /setup, which answers 410 because the install IS
+ * finished. An app that cannot reach its database should say so per request,
+ * not pretend it was never installed.
+ */
+async function activateOrDegrade() {
+  try {
+    await activateRuntime();
+  } catch (e) {
+    console.error("[boot] could not fully activate:", e.stack || e.message);
+    if (!activated) {
+      setRuntimeRouter(buildApiRouter());
+      activated = true;
+      console.error("[boot] API mounted anyway — routes will report their own errors.");
+    }
+    throw e;
+  }
+}
+
 // The wizard's final step calls this, so setup completes without a restart.
 setActivator(async () => {
   if (activated) return;
@@ -172,6 +197,27 @@ function checkDataDir() {
   }
 }
 
+/**
+ * Re-attach a half-finished install to the database it already configured.
+ *
+ * Best-effort throughout: the wizard has to be reachable even when the database
+ * it was pointed at is now gone, because repointing it is one of the things the
+ * wizard is for.
+ */
+async function resumeSetupDatabase() {
+  const saved = setupState.readState().mysql;
+  if (!saved || process.env.MYSQL_URL) return;
+  config.mysql = saved;
+  try {
+    await resetPool();
+    const applied = await appConfig.hydrate();
+    console.log(`[setup] reattached to the configured database` +
+      (applied.applied ? ` (${applied.applied} stored values)` : ""));
+  } catch (e) {
+    console.warn("[setup] the configured database is not reachable yet:", e.message);
+  }
+}
+
 async function boot() {
   // Listen first, unconditionally. A container that refuses to start because it
   // has no database is a container nobody can configure.
@@ -204,10 +250,24 @@ async function boot() {
   // a dead application.
   webBuild.buildIfMissing();
 
-  if (!setupState.isInstalled()) return printSetupBanner();
+  if (!setupState.isInstalled()) {
+    // The wizard's later steps WRITE to the database the wizard itself
+    // configured two steps earlier. Those credentials live in setup.json, and
+    // until now the only code that copied them into config.mysql was
+    // activateRuntime() — which this path returns before reaching, and the
+    // in-process assignment in /db/save, which dies with the process.
+    //
+    // So any restart mid-install (a redeploy, a crash, an idle timeout) left a
+    // process whose completedSteps said "db" and whose config.mysql was null.
+    // Every /test passed, because validators connect from the request body,
+    // and every /save failed on "database not configured". That is the entire
+    // symptom list from the failing install, and it is this.
+    await resumeSetupDatabase();
+    return printSetupBanner();
+  }
 
   try {
-    await activateRuntime();
+    await activateOrDegrade();
   } catch (e) {
     // Stay up and keep serving /api/health so the failure is diagnosable from
     // outside the container, rather than crash-looping.

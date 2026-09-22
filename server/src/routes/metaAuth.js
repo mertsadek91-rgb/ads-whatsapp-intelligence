@@ -2,9 +2,12 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import config from "../config.js";
 import * as auth from "../lib/metaAuth.js";
+// The shared wrapper, not a local copy: the copy here recorded nothing to
+// ads_error_logs and had no headersSent guard, on a router whose callback
+// already redirects before its last await.
+import { wrap } from "../lib/wrap.js";
 
 const router = Router();
-const wrap = (fn) => (req, res) => fn(req, res).catch((e) => res.status(500).json({ error: e.message }));
 
 // connection status (for the Settings page)
 router.get("/status", wrap(async (req, res) => res.json(await auth.status())));

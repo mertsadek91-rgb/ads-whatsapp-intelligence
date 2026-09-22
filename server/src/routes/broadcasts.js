@@ -60,7 +60,9 @@ router.get("/facets", wrap(async (req, res) => {
     }),
     owners, campaigns, stages, channels, leadStages, sources, scoreBands,
     messageRange: { lo: Number(messageStats[0]?.lo || 0), hi: Number(messageStats[0]?.hi || 0) },
-    categories: CATEGORIES,
+    // CATEGORIES is a function; JSON.stringify drops function values, so the
+    // key vanished from the payload entirely and the filter UI had no groups.
+    categories: CATEGORIES(),
   });
 }));
 
