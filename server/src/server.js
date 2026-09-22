@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import config, { isStrongSecret } from "./config.js";
 import * as setupState from "./lib/setupState.js";
+import * as bootLog from "./lib/bootLog.js";
 import * as appConfig from "./lib/appConfig.js";
 import * as businessProfile from "./lib/businessProfile.js";
 import { setKeyProvider } from "./lib/secretBox.js";
@@ -27,6 +28,14 @@ import * as metaAuth from "./lib/metaAuth.js";
 import * as authUsers from "./lib/authUsers.js";
 import { ensureSchema } from "./jobs/backfill.js";
 import { startScheduler } from "./jobs/scheduler.js";
+
+// Before anything else at all, including the lines below this one. A failure
+// during module initialisation is exactly the kind that produces a silent 503:
+// the process is gone before it serves a request, and hosting that shows only
+// the build log has nothing to show. This file is where the reason goes.
+const BOOT_LOG = bootLog.openBootLog(setupState.dataDir());
+bootLog.mirrorConsole();
+bootLog.recordCrashes();
 
 // Resolved before anything else: config.js no longer hard-exits on a missing
 // SESSION_SECRET, because that made a fresh clone unbootable and encouraged
@@ -146,6 +155,9 @@ function checkDataDir() {
     fs.writeFileSync(probe, "");
     fs.unlinkSync(probe);
     console.log(`[boot] data directory: ${dir}`);
+    // Named explicitly: on hosting that only shows the build log, this file is
+    // the only place the reason for a failed start will be written down.
+    if (BOOT_LOG) console.log(`[boot] boot log: ${BOOT_LOG}`);
     if (!process.env.DATA_DIR) {
       // On managed hosting the application directory is usually replaced on
       // every deploy, which silently takes the installation with it.
