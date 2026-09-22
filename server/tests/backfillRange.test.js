@@ -51,6 +51,8 @@ describe("the import follows the configured range", () => {
 
   it("always asks Meta for the full period", async () => {
     await backfill();
-    expect(metaCalls[0]).toEqual({ full: true });
+    // `progress` rides along so the ingest can report which stage it is on.
+    expect(metaCalls[0]).toMatchObject({ full: true });
+    expect(metaCalls[0].progress).toBeTruthy();
   });
 });

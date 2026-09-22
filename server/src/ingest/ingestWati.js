@@ -5,6 +5,7 @@ import { countryOf } from "../lib/phoneCountry.js";
 import { upsert } from "../db.js";
 import config from "../config.js";
 import { watiSince, describeRange } from "../lib/dataRange.js";
+import { NO_PROGRESS } from "../lib/jobProgress.js";
 
 export const WATI_COLS = [
   "wa_id", "bsuid", "full_name", "phone", "created_date", "created_at", "country",
@@ -98,6 +99,7 @@ async function flush(rows, wantMessages) {
  */
 export async function ingestWati(opts = {}) {
   const { incremental = false, hours = 24, messages = !incremental ? false : true } = opts;
+  const progress = opts.progress || NO_PROGRESS;
   const since = opts.since !== undefined ? opts.since : (messages ? watiSince(config) : null);
   const cutoff = incremental ? new Date(Date.now() - hours * 3600000) : null;
   if (incremental) console.log(`[wati] INCREMENTAL — updated since ${cutoff.toISOString()} (last ${hours}h)`);
@@ -107,7 +109,11 @@ export async function ingestWati(opts = {}) {
   // fetched decides how the upsert treats the derived score columns, and with
   // a `since` date in play that now differs per contact rather than per run.
   const batch = { true: [], false: [] };
-  let scanned = 0, kept = 0;
+  let scanned = 0, kept = 0, threads = 0;
+  // Wati's contact list has no count endpoint and no total in the page
+  // envelope, so the total is genuinely unknown until the last page. Reporting
+  // "1,240 so far" is honest; inventing a denominator would not be.
+  progress.stage(messages ? "wati_messages" : "wati_contacts", { total: null });
   for await (const c of wati.iterContacts()) {
     scanned++;
     if (cutoff) {
@@ -139,6 +145,12 @@ export async function ingestWati(opts = {}) {
     const wantMessages = messages && !(since && created && created < since);
     const r = await buildRow(c, wantMessages);
     if (r[0]) { batch[String(wantMessages)].push(r); kept++; }
+    if (wantMessages) threads++;
+    // Every 25, not every contact: each tick notifies listeners, and the point
+    // is a moving number, not a precise one.
+    if (scanned % 25 === 0) {
+      progress.tick(kept, { detail: messages ? `${threads} محادثة / conversations` : null });
+    }
     for (const k of ["true", "false"]) {
       if (batch[k].length >= 500) { await flush(batch[k], k === "true"); batch[k] = []; }
     }
@@ -146,8 +158,10 @@ export async function ingestWati(opts = {}) {
   for (const k of ["true", "false"]) {
     if (batch[k].length) await flush(batch[k], k === "true");
   }
-  console.log(`[wati] scanned ${scanned}, upserted ${kept}`);
-  return { scanned, kept };
+  progress.tick(kept, { detail: messages ? `${threads} محادثة / conversations` : null });
+  progress.stageDone({ scanned, kept, threads });
+  console.log(`[wati] scanned ${scanned}, upserted ${kept}, threads ${threads}`);
+  return { scanned, kept, threads };
 }
 
 export default ingestWati;

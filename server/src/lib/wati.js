@@ -125,6 +125,26 @@ export async function* iterContacts() {
   }
 }
 
+/**
+ * The messages in a getMessages payload that are actually MESSAGES.
+ *
+ * Wati returns ticket events, assignment events and system notices in the same
+ * `items` array as real messages, plus messages whose body is empty. Counting
+ * raw items and rendering filtered ones is how a contact came to show
+ * "1 message" in the list and "no messages" in the conversation: the item was a
+ * system event, so the counter saw one and the reader saw none. Both now read
+ * the same thing.
+ */
+function realMessages(payload) {
+  let items = payload?.messages?.items ?? payload?.messages ?? [];
+  if (!Array.isArray(items)) items = [];
+  return items.filter((m) => {
+    if (m.eventType && m.eventType !== "message") return false;
+    if (m.owner !== true && m.owner !== false) return false;
+    return !!(m.text || (m.type && m.type !== "text"));
+  });
+}
+
 /** First-response time (min), answered, message count, last message time.
  *  `channel` selects the connected number via ?channelPhoneNumber. Every number
  *  is readable with the primary token, so `unavailable` is always false now —
@@ -133,8 +153,7 @@ export async function firstResponse(waId, channel = null) {
   let j;
   try { j = await get(`/api/v1/getMessages/${waId}`, channelParams(channel)); }
   catch { return { fr: null, answered: false, n: 0, last: null, unavailable: false }; }
-  let items = j?.messages?.items ?? j?.messages ?? [];
-  if (!Array.isArray(items)) items = [];
+  const items = realMessages(j);
   const inbound = items.find((m) => m.owner === false);
   const outbound = items.find((m) => m.owner === true);
   const last = items.length ? items[0].created : null;
@@ -159,14 +178,9 @@ export async function getThread(waId, channel = null) {
     console.error(`[wati] getThread(${waId}) failed: ${e.message}`);
     return Object.assign([], { failed: true });
   }
-  let items = j?.messages?.items ?? j?.messages ?? [];
-  if (!Array.isArray(items)) items = [];
   const out = [];
-  for (const m of items) {
-    if (m.eventType && m.eventType !== "message") continue; // skip ticket/system events
-    if (m.owner !== true && m.owner !== false) continue;
+  for (const m of realMessages(j)) {
     const body = m.text || (m.type && m.type !== "text" ? `[${m.type}]` : "");
-    if (!body) continue;
     out.push({
       ts: m.created || null,
       dir: m.owner === true ? "out" : "in",

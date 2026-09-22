@@ -9,6 +9,7 @@ import { ingestWati } from "../ingest/ingestWati.js";
 import { ingestMeta } from "../ingest/ingestMeta.js";
 import config from "../config.js";
 import { describeRange } from "../lib/dataRange.js";
+import { NO_PROGRESS } from "../lib/jobProgress.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -43,7 +44,10 @@ export async function ensureSchema() {
 }
 
 export async function backfill(opts = {}) {
+  const progress = opts.progress || NO_PROGRESS;
+  progress.stage("schema");
   await ensureSchema();
+  progress.stageDone();
   console.log(`[backfill] range: ${describeRange(config).en}`);
   if (!opts.metaOnly) {
     // Message history defaults to the operator's own choice from setup, so the
@@ -52,10 +56,11 @@ export async function backfill(opts = {}) {
     await ingestWati({
       incremental: false,
       messages: opts.messages !== undefined ? !!opts.messages : !!config.data.watiMessages,
+      progress,
     });
   }
   if (!opts.watiOnly) {
-    await ingestMeta({ full: true });
+    await ingestMeta({ full: true, progress });
   }
   console.log("[backfill] done.");
 }

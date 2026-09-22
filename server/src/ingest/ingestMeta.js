@@ -6,6 +6,7 @@ import { upsert, query } from "../db.js";
 import config from "../config.js";
 import { metaSince } from "../lib/dataRange.js";
 import { setBaseCurrency } from "../lib/money.js";
+import { NO_PROGRESS } from "../lib/jobProgress.js";
 
 // Read per run, not at import: the start date is chosen during setup and can be
 // changed afterwards from Settings. See lib/dataRange.js for what blank, a date
@@ -40,8 +41,10 @@ export async function ingestMeta(opts = {}) {
     .then((info) => setBaseCurrency(info.currency, { source: "meta ad account" }))
     .catch((e) => console.warn("[meta] could not read the account currency:", e.message));
 
+  const progress = opts.progress || NO_PROGRESS;
   const until = opts.until || daysAgo(1);
   const dailySince = opts.full ? since() : daysAgo(8);
+  progress.stage("meta_ads", { total: null, detail: `${since()} → ${until}` });
 
   const ads = await meta.adPeriod(since(), until);
   await upsert("ads_meta_ad_perf", AD_COLS, ads.map((a) => [
@@ -80,6 +83,8 @@ export async function ingestMeta(opts = {}) {
     m.month, m.campaign_id, m.spend, m.impressions, m.clicks, m.results,
   ]), ["month", "campaign_id"]);
 
+  progress.stageDone();
+  progress.stage("meta_daily", { total: null, detail: `${dailySince} → ${until}` });
   const daily = await meta.campaignDaily(dailySince, until);
   await upsert("ads_meta_daily", D_COLS, daily.map((d) => [
     d.date, "campaign", d.campaign_id, d.campaign_name, d.campaign_id, d.spend,

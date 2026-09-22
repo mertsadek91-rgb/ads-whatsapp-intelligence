@@ -119,8 +119,8 @@ describe("firstResponse(): human reply latency", () => {
     get.mockReturnValueOnce(ok({
       messages: {
         items: [
-          { owner: true, created: "2026-06-21T10:05:00Z" },
-          { owner: false, created: "2026-06-21T10:00:00Z" },
+          { owner: true, text: "أهلاً", created: "2026-06-21T10:05:00Z" },
+          { owner: false, text: "مرحبا", created: "2026-06-21T10:00:00Z" },
         ],
       },
     }));
@@ -131,7 +131,7 @@ describe("firstResponse(): human reply latency", () => {
   });
 
   it("reports unanswered when there's no outbound message", async () => {
-    get.mockReturnValueOnce(ok({ messages: { items: [{ owner: false, created: "2026-06-21T10:00:00Z" }] } }));
+    get.mockReturnValueOnce(ok({ messages: { items: [{ owner: false, text: "مرحبا", created: "2026-06-21T10:00:00Z" }] } }));
     const r = await wati.firstResponse("wa1");
     expect(r.fr).toBeNull();
     expect(r.answered).toBe(false);
@@ -146,7 +146,8 @@ describe("firstResponse(): human reply latency", () => {
 
   it("passes ?channelPhoneNumber for a second-number contact and reads its messages", async () => {
     get.mockReturnValueOnce(ok({ result: "success", messages: { items: [
-      { owner: false, created: "2026-07-24T04:00:00Z" }, { owner: true, created: "2026-07-24T04:05:00Z" }] } }));
+      { owner: false, text: "مرحبا", created: "2026-07-24T04:00:00Z" },
+      { owner: true, text: "أهلاً", created: "2026-07-24T04:05:00Z" }] } }));
     const r = await wati.firstResponse("919101322807", "971500000009");
     expect(r.n).toBe(2);
     expect(r.answered).toBe(true);

@@ -6,6 +6,7 @@ import { ingestWati } from "../ingest/ingestWati.js";
 import { refreshBoards, isBoardRefreshing } from "../jobs/boardRefresh.js";
 import { ingestMeta } from "../ingest/ingestMeta.js";
 import { loadJobState, saveJobState, correctInterrupted } from "../lib/jobState.js";
+import * as jobProgress from "../lib/jobProgress.js";
 import { sendMail, isConfigured } from "../lib/mailer.js";
 import {
   gatherCampaignReport, campaignReportData, gatherEmployeeWeekly, employeeReportData,
@@ -155,15 +156,19 @@ export async function runJob(name, fn) {
   if (!jobs[name] || jobs[name].state === "running") return false;
   jobs[name] = { ...idle(), state: "running", startedAt: Date.now() };
   await persist(name);
+  // The reporter is handed to the job so a long import can say which stage it
+  // is on. A job that ignores it behaves exactly as before.
+  const progress = jobProgress.begin(name);
   (async () => {
     try {
-      const result = await fn();
+      const result = await fn(progress);
       jobs[name] = { state: "done", result, error: null, startedAt: jobs[name].startedAt, finishedAt: Date.now() };
       console.log(`[admin] ${name} done:`, JSON.stringify(result));
     } catch (e) {
       jobs[name] = { state: "error", result: null, error: e.message || String(e), startedAt: jobs[name].startedAt, finishedAt: Date.now() };
       console.error(`[admin] ${name} error:`, e.message);
     }
+    jobProgress.finish();
     await persist(name);
   })();
   return true;
@@ -195,8 +200,10 @@ router.post("/run-daily", (req, res) =>
 // Re-import from scratch over the configured data range. `messages` is
 // optional: left out, the operator's own choice from Settings applies.
 router.post("/backfill", (req, res) =>
-  start("wati", () => backfill(
-    req.body && req.body.messages !== undefined ? { messages: !!req.body.messages } : {}), res));
+  start("wati", (progress) => backfill({
+    ...(req.body && req.body.messages !== undefined ? { messages: !!req.body.messages } : {}),
+    progress,
+  }), res));
 
 /**
  * EMERGENCY board refresh — re-read everything behind the two wall boards now.
@@ -232,6 +239,8 @@ router.get("/refresh-boards/status", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/status", (req, res) => res.json(jobs));
+// `progress` is null unless a long job is running. The UI reads it to say which
+// stage is in flight instead of showing an undifferentiated spinner.
+router.get("/status", (req, res) => res.json({ ...jobs, progress: jobProgress.snapshot() }));
 
 export default router;

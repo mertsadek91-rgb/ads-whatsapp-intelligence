@@ -2,9 +2,36 @@ import { useEffect, useRef, useState } from "react";
 import api from "../api.js";
 import { useI18n } from "../i18n.jsx";
 
-function summarize(source, job, t) {
+/**
+ * What a running import is doing, as one line.
+ *
+ * "جارٍ التحديث…" was all an operator ever saw for a job that can run for tens
+ * of minutes — no stage, no counts, no way to tell working from stuck. The
+ * server now reports the stage it is on and how far into it; the total is often
+ * genuinely unknown (Wati's contact list has no count endpoint and no total in
+ * the page envelope), so a running tally is shown rather than a fake
+ * percentage.
+ */
+export function progressLine(progress, lang, t) {
+  if (!progress?.stage) return null;
+  const i = progress.stageIndex + 1;
+  const n = progress.stages.length;
+  const stage = progress.stages[progress.stageIndex];
+  const name = stage ? (lang === "en" ? stage.en : stage.ar) : progress.stage;
+  const count = progress.total
+    ? `${progress.done.toLocaleString()} / ${progress.total.toLocaleString()}`
+    : progress.done
+      ? t("{n} حتى الآن", { n: progress.done.toLocaleString() })
+      : "";
+  return [`${i}/${n}`, name, count, progress.detail].filter(Boolean).join(" · ");
+}
+
+function summarize(source, job, t, progress, lang) {
   if (!job || job.state === "idle") return null;
-  if (job.state === "running") return { cls: "u-run", text: t("جارٍ التحديث…") };
+  if (job.state === "running") {
+    const line = progressLine(progress, lang, t);
+    return { cls: "u-run", text: line || t("جارٍ التحديث…") };
+  }
   if (job.state === "error") return { cls: "u-err", text: "✗ " + (job.error || t("خطأ")) };
   // done
   const r = job.result || {};
@@ -19,7 +46,7 @@ function summarize(source, job, t) {
  *   instead of the stacked sidebar box.
  */
 export default function UpdateControls({ compact = false }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [jobs, setJobs] = useState({ wati: null, meta: null });
   const timer = useRef(null);
 
@@ -34,7 +61,7 @@ export default function UpdateControls({ compact = false }) {
       if (s && s.wati?.state !== "running" && s.meta?.state !== "running") {
         clearInterval(timer.current); timer.current = null;
       }
-    }, 2500);
+    }, 1500);
   }
   useEffect(() => { poll(); return () => timer.current && clearInterval(timer.current); }, []);
 
@@ -53,7 +80,8 @@ export default function UpdateControls({ compact = false }) {
   if (compact) {
     // Newest meaningful status wins — the app bar has room for one line, not
     // one per source.
-    const st = summarize("wati", jobs.wati, t) || summarize("meta", jobs.meta, t);
+    const st = summarize("wati", jobs.wati, t, jobs.progress, lang)
+      || summarize("meta", jobs.meta, t, jobs.progress, lang);
     return (
       <div className="sync-inline">
         {[["wati", "تحديث واتساب", "واتساب"], ["meta", "تحديث Meta", "Meta"]].map(([src, title, short]) => (
@@ -76,7 +104,7 @@ export default function UpdateControls({ compact = false }) {
     <div className="update-box">
       <div className="update-title">{t("تحديث البيانات")}</div>
       {[["wati", "تحديث واتساب"], ["meta", "تحديث Meta"]].map(([src, label]) => {
-        const st = summarize(src, jobs[src], t);
+        const st = summarize(src, jobs[src], t, jobs.progress, lang);
         return (
           <div key={src} className="update-row">
             <button className="btn orange" disabled={running(src)} onClick={() => run(src)}>
