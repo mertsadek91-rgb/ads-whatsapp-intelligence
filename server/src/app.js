@@ -174,16 +174,13 @@ if (fs.existsSync(dist)) {
   });
 } else {
   console.warn(
-    `[web] no built front end at ${dist} — the API works, but no page will load.
-` +
-    "      Run the web build as part of your deployment: npm run build:web");
+    `[web] no built front end at ${dist} — the API works, but no page will load.\n` +
+    "      Run the web build as part of your deployment: npm run build");
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api/")) return next();
     res.status(503).type("text/plain; charset=utf-8").send(
-      "الواجهة لم تُبنَ بعد — شغّل \"npm run build:web\" في خطوة البناء.
-" +
-      "The front end has not been built. Run \"npm run build:web\" in your deploy's build step.
-" +
+      "الواجهة لم تُبنَ بعد — شغّل \"npm run build\" في خطوة البناء.\n" +
+      "The front end has not been built. Run \"npm run build\" in your deploy's build step.\n" +
       `Expected: ${dist}`);
   });
 }

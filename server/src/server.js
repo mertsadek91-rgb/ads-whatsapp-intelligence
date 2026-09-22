@@ -9,6 +9,8 @@
 // moment the wizard finishes, and is the same function in both cases. That is
 // what lets an operator complete setup and land on a working dashboard without
 // being told to restart anything.
+import fs from "node:fs";
+import path from "node:path";
 import config, { isStrongSecret } from "./config.js";
 import * as setupState from "./lib/setupState.js";
 import * as appConfig from "./lib/appConfig.js";
@@ -126,10 +128,43 @@ function printSetupBanner() {
     "=".repeat(64) + "\n");
 }
 
+/**
+ * Prove the data directory is usable before anything needs it.
+ *
+ * setup.json lives here: the database credentials, the session secret, and the
+ * key that decrypts every stored API token. It is created on first write, which
+ * is in the middle of the wizard — so a DATA_DIR that is wrong or unwritable
+ * surfaces as a failed step three screens in, with the real cause nowhere near
+ * the message. Checking at boot moves it to the one place someone is already
+ * reading, and names the directory so a typo is obvious.
+ */
+function checkDataDir() {
+  const dir = setupState.dataDir();
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const probe = path.join(dir, `.write-probe-${process.pid}`);
+    fs.writeFileSync(probe, "");
+    fs.unlinkSync(probe);
+    console.log(`[boot] data directory: ${dir}`);
+    if (!process.env.DATA_DIR) {
+      // On managed hosting the application directory is usually replaced on
+      // every deploy, which silently takes the installation with it.
+      console.log("       DATA_DIR is not set, so this sits inside the app directory. " +
+        "If your host replaces that on deploy, point DATA_DIR somewhere persistent.");
+    }
+  } catch (e) {
+    console.error(
+      `[boot] cannot write to the data directory ${dir}: ${e.message}
+` +
+      "       Setup will fail when it tries to save. Fix DATA_DIR or the directory's permissions.");
+  }
+}
+
 async function boot() {
   // Listen first, unconditionally. A container that refuses to start because it
   // has no database is a container nobody can configure.
   printTlsHint();
+  checkDataDir();
   app.listen(config.port, () => console.log(`Listening on http://0.0.0.0:${config.port}`));
 
   if (!setupState.isInstalled()) return printSetupBanner();
