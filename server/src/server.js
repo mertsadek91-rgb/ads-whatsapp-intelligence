@@ -154,8 +154,7 @@ function checkDataDir() {
     }
   } catch (e) {
     console.error(
-      `[boot] cannot write to the data directory ${dir}: ${e.message}
-` +
+      `[boot] cannot write to the data directory ${dir}: ${e.message}\n` +
       "       Setup will fail when it tries to save. Fix DATA_DIR or the directory's permissions.");
   }
 }
@@ -165,7 +164,26 @@ async function boot() {
   // has no database is a container nobody can configure.
   printTlsHint();
   checkDataDir();
-  app.listen(config.port, () => console.log(`Listening on http://0.0.0.0:${config.port}`));
+
+  // Report what was actually bound, not what was asked for — server.address()
+  // is the only thing that knows, and on a host that proxies to a socket it is
+  // the difference between "started" and "reachable".
+  const server = app.listen(config.listen, () => {
+    const bound = server.address();
+    console.log(typeof bound === "string"
+      ? `Listening on unix socket ${bound}`
+      : `Listening on http://0.0.0.0:${bound.port}`);
+    if (process.env.PORT && typeof config.listen === "string") {
+      console.log(`       PORT is a socket path, not a number — bound to it as given.`);
+    }
+  });
+
+  server.on("error", (e) => {
+    console.error(
+      `[boot] could not listen on ${JSON.stringify(config.listen)}: ${e.message}\n` +
+      `       PORT=${JSON.stringify(process.env.PORT ?? null)}. ` +
+      "Nothing will reach this app until that is resolved.");
+  });
 
   if (!setupState.isInstalled()) return printSetupBanner();
 

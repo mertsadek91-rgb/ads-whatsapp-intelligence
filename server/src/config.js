@@ -77,8 +77,35 @@ export function isStrongSecret(v) {
 const E = process.env;
 const num = (v, d) => (v == null || v === "" ? d : Number(v));
 
+/**
+ * What to hand app.listen().
+ *
+ * PORT is a number on most platforms. On the CloudLinux/Passenger stack that
+ * much shared hosting uses — LiteSpeed in front, Node behind — it is a UNIX
+ * SOCKET PATH instead, and Number("/tmp/passenger.../socket") is NaN.
+ * app.listen(NaN) throws ERR_SOCKET_BAD_PORT, which kills the process before it
+ * serves anything: the deployment builds perfectly, the site answers 503
+ * forever, and the build log — the only log most panels show — ends in
+ * "built in 3.30s" with nothing wrong in it.
+ *
+ * Returns a number for a real port and the string untouched for anything else,
+ * which is exactly what app.listen() wants in each case.
+ */
+export function listenTarget(value, fallback = 3000) {
+  const s = String(value ?? "").trim();
+  if (!s) return fallback;
+  const n = Number(s);
+  return Number.isInteger(n) && n >= 0 && n <= 65535 ? n : s;
+}
+
+const LISTEN = listenTarget(E.PORT);
+// A socket path has no port number; 3000 is only used to build a display URL.
+const PORT_FOR_URL = typeof LISTEN === "number" ? LISTEN : 3000;
+
 export const config = {
-  port: num(E.PORT, 3000),
+  port: PORT_FOR_URL,
+  // number, or a socket path — see listenTarget above.
+  listen: LISTEN,
   // null until configured. db.js reports "not configured" rather than dialling
   // a made-up host, and the setup wizard fills this in.
   mysql: parseMysqlUrl(E.MYSQL_URL),
@@ -91,7 +118,7 @@ export const config = {
   },
   // Derived from PORT when not set explicitly, so the setup banner prints a URL
   // that actually works on a non-default port rather than always saying :3000.
-  appBaseUrl: (E.APP_BASE_URL || `http://localhost:${num(E.PORT, 3000)}`).replace(/\/$/, ""),
+  appBaseUrl: (E.APP_BASE_URL || `http://localhost:${PORT_FOR_URL}`).replace(/\/$/, ""),
   meta: {
     token: E.META_ACCESS_TOKEN || "",   // optional seed; the live token lives in the DB
     appId: E.META_APP_ID || "",
