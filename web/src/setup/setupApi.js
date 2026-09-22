@@ -40,6 +40,7 @@ export const setupApi = {
   approveProfile: (profile) => req("POST", "/business/approve", { profile }),
   skip: (step) => req("POST", `/${step}/skip`, {}),
   fetchBusiness: (body) => req("POST", "/business/fetch", body),
+  metaOauthStart: (body) => req("POST", "/meta/oauth/start", body),
   finish: (body) => req("POST", "/finish", body),
 };
 

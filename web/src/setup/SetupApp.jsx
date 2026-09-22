@@ -83,6 +83,25 @@ export default function SetupApp() {
 
   useEffect(() => { refresh(); }, []);
 
+  // Facebook sends the operator back to /setup?meta=connected (or =error). Read
+  // it once, say what happened, and clear it from the address bar so a reload
+  // does not repeat a stale message.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const outcome = q.get("meta");
+    if (!outcome) return;
+    window.history.replaceState({}, "", window.location.pathname);
+    setStep("meta");
+    if (outcome === "connected") {
+      setResult({ ok: true, warnings: [
+        t("تم تسجيل الدخول بحساب فيسبوك — اضغط «اختبار الاتصال» لاختيار الحساب الإعلاني.",
+          "Signed in with Facebook — press Test connection to choose the ad account.")] });
+    } else {
+      setResult({ ok: false, ar: q.get("msg") || "تعذّر تسجيل الدخول", en: q.get("msg") || "Sign-in failed" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /**
    * Claim the installer once, then stop asking.
    *
@@ -212,6 +231,24 @@ export default function SetupApp() {
       });
       setTested((x) => ({ ...x, business: false }));
     } finally { setFetching(false); }
+  }
+
+  /**
+   * Sign in with Facebook rather than pasting a token.
+   *
+   * A manually created access token is the hardest field in this whole wizard
+   * to produce, and the Settings page has offered one-click sign-in from the
+   * start — so it belongs here too, where a new operator actually is.
+   */
+  async function connectMeta() {
+    setBusy(true); setResult(null);
+    try {
+      if (!(await claimIfNeeded())) return;
+      const { ok, data } = await setupApi.metaOauthStart({
+        appId: form.meta.appId, appSecret: form.meta.appSecret });
+      if (!ok) { setResult(data); return; }
+      window.location.href = data.url;   // leaves the page; Facebook brings it back
+    } finally { setBusy(false); }
   }
 
   async function createDb() {
@@ -357,12 +394,32 @@ export default function SetupApp() {
           <>
             <Field field="meta.appId" lang={lang} value={form.meta.appId} onChange={(v) => set("meta", "appId", v)} />
             <Field field="meta.appSecret" lang={lang} value={form.meta.appSecret} onChange={(v) => set("meta", "appSecret", v)} />
-            <Field field="meta.token" lang={lang} value={form.meta.token} onChange={(v) => set("meta", "token", v)} />
+            <div className="setup-actions" style={{ marginBlockStart: 4 }}>
+              <button type="button" className="btn primary"
+                disabled={busy || !form.meta.appId || !form.meta.appSecret}
+                onClick={connectMeta}>
+                {status.saved?.meta?.connected
+                  ? t("أعِد تسجيل الدخول بفيسبوك", "Sign in with Facebook again")
+                  : t("سجّل الدخول بفيسبوك واربط الحساب", "Sign in with Facebook")}
+              </button>
+              <span className="setup-gate-note">
+                {status.saved?.meta?.connected
+                  ? t("متّصل — لا حاجة لرمز وصول يدوي.", "Connected — no manual access token needed.")
+                  : t("الأسهل: يُنشئ الرمز نيابةً عنك بدل نسخه يدوياً.",
+                       "The easy path: it creates the token for you instead of you copying one.")}
+              </span>
+            </div>
+
             <p className="setup-note">
               {t("رابط إعادة التوجيه المطلوب تسجيله في تطبيق Meta:",
                  "The redirect URI you must register in your Meta app:")}
               <code>{status.redirectUri}</code>
             </p>
+
+            <Field field="meta.token" lang={lang} value={form.meta.token} onChange={(v) => set("meta", "token", v)}
+              placeholder={status.saved?.meta?.connected
+                ? t("— مُتحصَّل عليه من تسجيل الدخول —", "— obtained from the sign-in —")
+                : undefined} />
             <Field field="meta.accountId" lang={lang} value={form.meta.accountId}
               onChange={(v) => set("meta", "accountId", v)}>
               {result?.details?.adAccounts?.length ? (

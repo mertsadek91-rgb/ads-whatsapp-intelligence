@@ -33,6 +33,10 @@ const DEFAULTS = {
   mysql: null,
   sessionSecret: null,
   secretKey: null,
+  // One-shot CSRF state for the wizard's Facebook sign-in. The wizard has no
+  // session — it runs before any database or login exists — so the value that
+  // ties the redirect back to the request that started it lives here.
+  metaOauthState: null,
 };
 
 let cache = null;

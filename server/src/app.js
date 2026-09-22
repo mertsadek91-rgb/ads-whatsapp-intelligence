@@ -40,7 +40,7 @@ import broadcastsRoutes from "./routes/broadcasts.js";
 import qualityReviewRoutes from "./routes/qualityReview.js";
 import publicBoardRoutes from "./routes/publicBoard.js";
 import businessProfileRoutes from "./routes/businessProfile.js";
-import setupRoutes from "./routes/setup.js";
+import setupRoutes, { metaOauthCallback } from "./routes/setup.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -75,6 +75,13 @@ app.get("/api/health", async (req, res) => {
 });
 
 app.use("/api/setup", setupRoutes);
+
+// Facebook's redirect lands here, and this path must be the same one the
+// installed app uses — a Meta app registers its redirect URIs by hand, and
+// asking an operator to register a second one for the wizard is a step nobody
+// would remember. Mounted ahead of the runtime router so it works before the
+// app is installed; once it is, the handler defers to the real route.
+app.get("/api/meta/callback", metaOauthCallback);
 
 // The login screen has to render the installation’s own name and colour
 // before anyone has signed in, so a deliberately minimal subset of the app
