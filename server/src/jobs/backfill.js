@@ -60,16 +60,26 @@ export async function backfill(opts = {}) {
   console.log("[backfill] done.");
 }
 
+// Inside an async function, not at module scope. A top-level await anywhere in
+// the graph makes the whole graph un-require()-able — Node raises
+// ERR_REQUIRE_ASYNC_MODULE — and server.js imports ensureSchema from this file.
+// That does not matter when the app is started as `node src/server.js`, and it
+// is fatal on hosting that require()s the entry file, which is what the
+// CloudLinux/Passenger runners behind much shared hosting do. The app built
+// perfectly there and died on its first line.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const a = process.argv.slice(2);
-  const { bootstrapCli } = await import("../lib/bootstrapCli.js");
-  await bootstrapCli();
-  backfill({
-    metaOnly: a.includes("--meta-only"),
-    watiOnly: a.includes("--wati-only"),
-    ...(a.includes("--messages") ? { messages: true }
-      : a.includes("--no-messages") ? { messages: false } : {}),
-  }).then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+  (async () => {
+    const a = process.argv.slice(2);
+    const { bootstrapCli } = await import("../lib/bootstrapCli.js");
+    await bootstrapCli();
+    await backfill({
+      metaOnly: a.includes("--meta-only"),
+      watiOnly: a.includes("--wati-only"),
+      ...(a.includes("--messages") ? { messages: true }
+        : a.includes("--no-messages") ? { messages: false } : {}),
+    });
+    process.exit(0);
+  })().catch((e) => { console.error(e); process.exit(1); });
 }
 
 export default backfill;

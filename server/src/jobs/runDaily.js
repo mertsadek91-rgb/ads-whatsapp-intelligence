@@ -65,10 +65,15 @@ export async function runDaily({ hours = 24 } = {}) {
   return { wati, meta, auto };
 }
 
+// Async IIFE, not top-level await — see the note in backfill.js: a top-level
+// await anywhere in the graph makes the entry un-require()-able.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { bootstrapCli } = await import("../lib/bootstrapCli.js");
-  await bootstrapCli();
-  runDaily().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+  (async () => {
+    const { bootstrapCli } = await import("../lib/bootstrapCli.js");
+    await bootstrapCli();
+    await runDaily();
+    process.exit(0);
+  })().catch((e) => { console.error(e); process.exit(1); });
 }
 
 export default runDaily;
