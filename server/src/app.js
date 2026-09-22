@@ -159,12 +159,32 @@ export function buildApiRouter() {
 }
 
 // ---- Static SPA ----------------------------------------------------------
+// The API is served whether or not the front end was built, because the two
+// fail for different reasons and a running API is still worth having. But
+// skipping this silently — which it used to do — means a deployment that never
+// ran the web build answers every page request with a bare API 404, and the
+// only clue is in a build log nobody re-reads. Say it once, at boot, and
+// answer non-API requests with the reason rather than nothing.
 const dist = path.resolve(__dirname, "../../web/dist");
 if (fs.existsSync(dist)) {
   app.use(express.static(dist));
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api/")) return next();
     res.sendFile(path.join(dist, "index.html"));
+  });
+} else {
+  console.warn(
+    `[web] no built front end at ${dist} — the API works, but no page will load.
+` +
+    "      Run the web build as part of your deployment: npm run build:web");
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/")) return next();
+    res.status(503).type("text/plain; charset=utf-8").send(
+      "الواجهة لم تُبنَ بعد — شغّل \"npm run build:web\" في خطوة البناء.
+" +
+      "The front end has not been built. Run \"npm run build:web\" in your deploy's build step.
+" +
+      `Expected: ${dist}`);
   });
 }
 

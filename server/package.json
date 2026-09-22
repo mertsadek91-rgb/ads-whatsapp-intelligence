@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.js",
-    "start:trusted": "node --use-system-ca src/server.js"
+    "start:trusted": "node --use-system-ca src/server.js",
+    "build:web": "node scripts/build-web.mjs"
   },
   "dependencies": {
     "@fontsource/cairo": "^5.2.7",

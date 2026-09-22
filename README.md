@@ -84,6 +84,34 @@ docker compose logs -f app        # رمز التنصيب يُطبع هنا
 البيانات، ومفتاح الجلسة، والمفتاح الذي يفكّ تشفير كل رمز محفوظ) و`mysql-data`.
 كلاهما معرَّف كـ volume في `docker-compose.yml`. حذف الأول يعني تنصيباً من الصفر.
 
+### على استضافة Node مُدارة (Hostinger، Render، Railway)
+
+هذه الاستضافات تسأل عن **مجلّد جذر واحد** وتُشغّل التنصيب والبناء والتشغيل
+بداخله. المشروع حزمتان، فالإعداد الصحيح:
+
+| الحقل | القيمة | لماذا |
+|---|---|---|
+| Root directory | `server` | ليُنصَّب اعتماديات الخادم فعلاً |
+| Entry file | `src/server.js` | **بدونه لا يُشغَّل شيء**، ويعرض الدومين صفحة المزوّد الافتراضية |
+| Build command | `npm run build:web` | يبني الواجهة؛ بدونه تعمل الـAPI بلا أي صفحة |
+| Output directory | (اتركه فارغاً) | الخادم نفسه يخدم الملفات الساكنة؛ ملؤه قد يجعل المزوّد يخدم ملفات بدل تشغيل Node |
+| Node version | 20 أو أحدث | |
+
+ومتغيّرات البيئة — الثلاثة الأولى إلزامية عملياً:
+
+```
+SESSION_SECRET=<32 حرفاً عشوائياً على الأقل>
+APP_BASE_URL=https://your-domain
+TRUST_PROXY_HOPS=1
+DATA_DIR=/path/يبقى/بين/عمليات/النشر
+```
+
+⚠️ **`DATA_DIR` ليس تفصيلاً.** فيه `setup.json`: بيانات قاعدة البيانات، ومفتاح
+الجلسة، والمفتاح الذي يفكّ تشفير كل رمز محفوظ. أغلب هذه الاستضافات تمسح مجلّد
+التطبيق عند كل نشر — فإن بقي `setup.json` بداخله فقدتَ التنصيب في كل مرّة
+ولزمك إعادة المعالج من الصفر. وجّهه إلى مسار ثابت، أو استعمل صورة Docker
+بحجم تخزين مثبَّت.
+
 ### خطوات المعالج
 
 1. **قاعدة البيانات** — يختبر الاتصال فعلياً، ويعرض زر «أنشئها لي» إن لم تكن موجودة، ثم يُنشئ كل الجداول.
@@ -234,6 +262,35 @@ than the server.
 password, the session secret, and the key that decrypts every stored API token)
 and `mysql-data`. Both are declared in `docker-compose.yml`. Losing the first
 means installing from scratch.
+
+### On managed Node hosting (Hostinger, Render, Railway)
+
+These hosts ask for a single **root directory** and run install, build and start
+inside it. This project is two packages, so:
+
+| Field | Value | Why |
+|---|---|---|
+| Root directory | `server` | so the API's own dependencies actually install |
+| Entry file | `src/server.js` | **without it nothing starts**, and the domain falls through to the host's default page |
+| Build command | `npm run build:web` | builds the front end; without it the API runs and no page loads |
+| Output directory | (leave empty) | the server serves the static files itself; filling this in can make the host serve files instead of running Node |
+| Node version | 20 or newer | |
+
+Environment variables — the first three are effectively required:
+
+```
+SESSION_SECRET=<at least 32 random characters>
+APP_BASE_URL=https://your-domain
+TRUST_PROXY_HOPS=1
+DATA_DIR=/a/path/that/survives/deploys
+```
+
+⚠️ **`DATA_DIR` is not a detail.** It holds `setup.json`: the database
+credentials, the session secret, and the key that decrypts every stored API
+token. Most of these hosts wipe the application directory on each deploy, so
+leaving it inside means losing the installation every time and walking the
+wizard again. Point it somewhere persistent, or deploy the Docker image with a
+mounted volume.
 
 ### The six steps
 
