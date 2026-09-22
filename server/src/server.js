@@ -14,6 +14,7 @@ import path from "node:path";
 import config, { isStrongSecret } from "./config.js";
 import * as setupState from "./lib/setupState.js";
 import * as bootLog from "./lib/bootLog.js";
+import * as webBuild from "./lib/webBuild.js";
 import * as appConfig from "./lib/appConfig.js";
 import * as businessProfile from "./lib/businessProfile.js";
 import { setKeyProvider } from "./lib/secretBox.js";
@@ -196,6 +197,12 @@ async function boot() {
       `       PORT=${JSON.stringify(process.env.PORT ?? null)}. ` +
       "Nothing will reach this app until that is resolved.");
   });
+
+  // A release that arrived without the built front end builds it now, in the
+  // background. Not awaited: on a host that kills a process for taking too long
+  // to bind, blocking here to run an npm install would turn a missing page into
+  // a dead application.
+  webBuild.buildIfMissing();
 
   if (!setupState.isInstalled()) return printSetupBanner();
 

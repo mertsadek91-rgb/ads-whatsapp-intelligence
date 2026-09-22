@@ -13,7 +13,6 @@ import session from "express-session";
 import MySQLStoreFactory from "express-mysql-session";
 import cookieParser from "cookie-parser";
 import path from "node:path";
-import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import config from "./config.js";
@@ -22,6 +21,7 @@ import { healthCheck } from "./lib/health.js";
 import { apiLog } from "./middleware/apiLog.js";
 import { requireAuth, requireRole } from "./middleware/auth.js";
 import * as setupState from "./lib/setupState.js";
+import * as webBuild from "./lib/webBuild.js";
 
 import authRoutes from "./routes/auth.js";
 import usersRoutes from "./routes/users.js";
@@ -160,29 +160,34 @@ export function buildApiRouter() {
 
 // ---- Static SPA ----------------------------------------------------------
 // The API is served whether or not the front end was built, because the two
-// fail for different reasons and a running API is still worth having. But
-// skipping this silently — which it used to do — means a deployment that never
-// ran the web build answers every page request with a bare API 404, and the
-// only clue is in a build log nobody re-reads. Say it once, at boot, and
-// answer non-API requests with the reason rather than nothing.
-const dist = path.resolve(__dirname, "../../web/dist");
-if (fs.existsSync(dist)) {
-  app.use(express.static(dist));
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api/")) return next();
-    res.sendFile(path.join(dist, "index.html"));
-  });
-} else {
-  console.warn(
-    `[web] no built front end at ${dist} — the API works, but no page will load.\n` +
-    "      Run the web build as part of your deployment: npm run build");
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api/")) return next();
-    res.status(503).type("text/plain; charset=utf-8").send(
-      "الواجهة لم تُبنَ بعد — شغّل \"npm run build\" في خطوة البناء.\n" +
-      "The front end has not been built. Run \"npm run build\" in your deploy's build step.\n" +
-      `Expected: ${dist}`);
-  });
-}
+// fail for different reasons and a running API is still worth having — the
+// setup wizard needs nothing else. What is not acceptable is failing silently,
+// which is what this did before: a deployment that never ran the web build
+// answered every page with a bare API 404, and the only clue was in a build log
+// nobody re-reads.
+// Mounted unconditionally, and whether it has anything to serve is decided per
+// REQUEST rather than once at import. A release can arrive without the built
+// front end and gain it a minute later — which is exactly what happens on a
+// host that builds in one directory and runs from another — and deciding this
+// at import time would leave such a deployment serving the "not built" page
+// until somebody restarted it.
+app.use(express.static(webBuild.distDir));
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
+  if (webBuild.isBuilt()) return res.sendFile(path.join(webBuild.distDir, "index.html"));
+
+  const s = webBuild.status();
+  if (s.status === "building") {
+    return res.status(503).type("text/plain; charset=utf-8")
+      .set("Retry-After", "30")
+      .send("جارٍ بناء الواجهة الآن — أعِد التحميل بعد دقيقة.\n" +
+            "The front end is being built right now — reload in a minute.\n");
+  }
+  res.status(503).type("text/plain; charset=utf-8").send(
+    "الواجهة لم تُبنَ بعد — شغّل \"npm run build\" في خطوة البناء.\n" +
+    "The front end has not been built. Run \"npm run build\" in your deploy's build step.\n" +
+    `Expected: ${webBuild.distDir}\n` +
+    (s.error ? `\nLast build attempt failed:\n${s.error}\n` : ""));
+});
 
 export default app;
