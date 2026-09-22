@@ -7,6 +7,7 @@ import { query } from "../db.js";
 import { requireRole } from "../middleware/auth.js";
 import { getIdentity, saveIdentity } from "../lib/appIdentity.js";
 import { CURRENCIES, DEFAULT_RATES, sanitizeRates } from "../lib/currency.js";
+import { baseCurrency } from "../lib/money.js";
 import { COUNTRIES } from "../lib/phoneCountry.js";
 import { isConfigured as smtpConfigured } from "../lib/mailer.js";
 import { readWorkHours, sanitizeWorkHours } from "../lib/contactStatus.js";
@@ -27,19 +28,24 @@ const EMAIL_ENABLED_KEY = "reports_email_enabled";
 const WORK_HOURS_KEY = "work_hours";
 const ROLES = new Set(["agent", "campaign_manager", "general_manager"]);
 
+// `base` is what the stored amounts are actually in — read from the ad account,
+// not assumed. The browser needs it to know which rate is fixed at 1 and what
+// the other rates are relative to.
 router.get("/currency", wrap(async (req, res) => {
+  const base = await baseCurrency();
   const r = await query("select v from ads_settings where k = ?", [RATES_KEY]);
-  const rates = r.length ? sanitizeRates(JSON.parse(r[0].v)) : DEFAULT_RATES;
-  res.json({ currencies: CURRENCIES, rates });
+  const rates = r.length ? sanitizeRates(JSON.parse(r[0].v), base) : sanitizeRates(DEFAULT_RATES, base);
+  res.json({ currencies: CURRENCIES, rates, base });
 }));
 
 router.post("/currency", admin, wrap(async (req, res) => {
-  const rates = sanitizeRates(req.body?.rates);
+  const base = await baseCurrency();
+  const rates = sanitizeRates(req.body?.rates, base);
   await query(
     "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
     [RATES_KEY, JSON.stringify(rates)]
   );
-  res.json({ currencies: CURRENCIES, rates });
+  res.json({ currencies: CURRENCIES, rates, base });
 }));
 
 // ---- App identity: what this installation calls itself ----

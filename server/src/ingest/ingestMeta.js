@@ -5,6 +5,7 @@ import * as metaAuth from "../lib/metaAuth.js";
 import { upsert, query } from "../db.js";
 import config from "../config.js";
 import { metaSince } from "../lib/dataRange.js";
+import { setBaseCurrency } from "../lib/money.js";
 
 // Read per run, not at import: the start date is chosen during setup and can be
 // changed afterwards from Settings. See lib/dataRange.js for what blank, a date
@@ -31,6 +32,14 @@ export async function ingestMeta(opts = {}) {
     console.log("[meta] SKIPPED — no Meta token (connect from Settings)");
     return { skipped: true };
   }
+  // What Meta bills this account in — which is what every `spend` below is
+  // denominated in, whatever the columns are called. Asked once per run and
+  // recorded, so the display layer stops assuming dirhams. A failure here must
+  // not stop the ingest: a mislabelled currency is bad, no data is worse.
+  await meta.accountInfo()
+    .then((info) => setBaseCurrency(info.currency, { source: "meta ad account" }))
+    .catch((e) => console.warn("[meta] could not read the account currency:", e.message));
+
   const until = opts.until || daysAgo(1);
   const dailySince = opts.full ? since() : daysAgo(8);
 

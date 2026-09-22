@@ -250,11 +250,14 @@ function WorkHoursSection() {
 }
 
 // BUG-022 fix: a manual, admin-edited exchange rate per currency — no live
-// FX API. AED is the storage base and always fixed at 1; every other rate
-// answers "how many units of this currency equal 1 AED?".
+// FX API. The BASE is whatever the Meta ad account bills in, is always fixed
+// at 1, and every other rate answers "how many units of this currency equal 1
+// of the base?". It used to be hardcoded as AED here and everywhere else,
+// which made every figure on a non-AED account wrong by a factor nobody could
+// see.
 function CurrencyRatesSection() {
   const { t } = useI18n();
-  const { currencies, rates, saveRates } = useCurrency();
+  const { currencies, rates, saveRates, base } = useCurrency();
   const [edits, setEdits] = useState({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -272,10 +275,16 @@ function CurrencyRatesSection() {
     <div className="section">
       <h3>{t("أسعار تحويل العملات (ثابتة، تُضبَط يدوياً)")}</h3>
       <p className="muted" style={{ marginBottom: 12 }}>
-        {t("الدرهم (AED) هو عملة التخزين الأساسية دائماً. لكل عملة أخرى، أدخِل: كم يساوي 1 درهم بهذه العملة؟")}
+        {t("المبالغ مخزَّنة بعملة حسابك الإعلاني")}: <b>{base}</b>{" — "}
+        {t("وهي مثبَّتة على 1. لكل عملة أخرى أدخِل: كم وحدة منها تساوي 1 {base}؟", { base })}
       </p>
+      {base !== "AED" && (
+        <div className="note" style={{ marginBottom: 12 }}>
+          {t("الأسعار الابتدائية في النظام محسوبة على أساس الدرهم، فهي غير صحيحة لحسابك. راجِعها قبل الاعتماد على أي رقم محوَّل.")}
+        </div>
+      )}
       <div className="grid2" style={{ maxWidth: 520 }}>
-        {currencies.filter((c) => c.code !== "AED").map((c) => (
+        {currencies.filter((c) => c.code !== base).map((c) => (
           <div className="field" key={c.code}>
             <label>{c.symbol} {c.code} — {t(c.name_ar)}</label>
             <input type="number" step="0.001" min="0" value={edits[c.code] ?? ""}

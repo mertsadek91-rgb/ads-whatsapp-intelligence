@@ -141,9 +141,20 @@ docker compose logs -f app        # رمز التنصيب يُطبع هنا
 المنتهية بـ `_aed`). المفاهيم تُترجم عبر ملف نشاطك وتظهر لك بمفردات مجالك،
 لكن أسماء الأعمدة نفسها لم تتغيّر بعد. هذا معروف وموثَّق، وليس مفاجأة.
 
-كذلك: العملة الأساسية تُؤخذ حالياً من حساب Meta دون تحويل، وخريطة مفاتيح
-الهواتف لا تزال تخلط كندا بأمريكا وكازاخستان بروسيا. كلاهما مُدرج للإصلاح
-ومذكور هنا حتى لا تكتشفه في تقرير.
+**العملة:** المبالغ تُخزَّن بعملة حسابك الإعلاني على Meta — يقرأها النظام من
+الحساب نفسه ولا يفترضها. الأعمدة ما زالت اسمها `_aed` لأن إعادة تسميتها تمسّ
+سبعة عشر موضعاً في المخطّط بلا فائدة سلوكية؛ ما كان مفقوداً هو معرفة العملة
+الحقيقية، وهي الآن معروفة ومعروضة في **الإعدادات ← أسعار تحويل العملات**.
+
+**لا يُحوَّل أي رقم تاريخي.** إن تغيّرت عملة حسابك الإعلاني يوماً، فالصفوف
+القديمة تبقى بعملتها القديمة — لا نعرف السعر الذي كان سارياً يوم كتابة كل صفّ،
+واختراعه أسوأ من عدم التحويل. الأسعار الابتدائية في النظام محسوبة على أساس
+الدرهم، فإن كان حسابك بعملة أخرى فراجِعها قبل الاعتماد على أي رقم محوَّل —
+والصفحة تنبّهك إلى ذلك.
+
+**الدول:** مفتاح الهاتف `1+` يُفكَّك الآن حسب رمز المنطقة (كندا وجامايكا
+والدومينيكان وغيرها منفصلة عن أمريكا)، و`7+` يفرّق كازاخستان عن روسيا. الرقم
+القصير جداً يعيد «غير محدَّد» بدل التخمين.
 
 </div>
 
@@ -288,10 +299,22 @@ business profile and you see your own words in the UI, but the column names
 themselves have not been renamed yet. That is known and documented, not a
 surprise waiting for you.
 
-Likewise: the base currency is currently taken from your Meta account without
-conversion, and the phone-prefix map still folds Canada into the US and
-Kazakhstan into Russia. Both are queued for fixing and named here so you do not
-discover them in a report.
+**Currency:** amounts are stored in your Meta ad account's billing currency,
+read from the account rather than assumed. The columns are still named `_aed`
+because renaming them touches seventeen schema sites for no behavioural gain;
+what was actually missing was knowing which currency the numbers are in, and
+that is now known and shown under **Settings → currency rates**.
+
+**No historical figure is converted.** If your ad account's currency ever
+changes, older rows stay in the old one — we do not know what rate applied on
+the day each row was written, and inventing one is worse than not converting.
+The built-in starting rates assume a dirham base, so on any other currency
+review them before relying on a converted figure; the page says so.
+
+**Countries:** `+1` is now resolved by area code (Canada, Jamaica, the
+Dominican Republic and the rest are separate from the US), and `+7` tells
+Kazakhstan from Russia. A number too short to carry an area code returns
+"unknown" rather than a guess.
 
 ## Development
 

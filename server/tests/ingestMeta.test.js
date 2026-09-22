@@ -15,9 +15,14 @@ vi.mock("../src/lib/metaAuth.js", () => ({ ensureFresh: vi.fn(async () => ({ ref
 
 const hasToken = vi.fn();
 const adCreatives = vi.fn(async () => ({}));
+// The ad account's billing currency, which is what every `spend` below is
+// denominated in. ingestMeta records it so the display layer stops assuming
+// dirhams; see lib/money.js.
+const accountInfo = vi.fn(async () => ({ currency: "AED", name: "Test account", timezone: "Asia/Dubai" }));
 vi.mock("../src/lib/meta.js", () => ({
   hasToken: (...a) => hasToken(...a),
   adCreatives: (...a) => adCreatives(...a),
+  accountInfo: (...a) => accountInfo(...a),
   adPeriod: vi.fn(async () => []),
   adsetPeriod: vi.fn(async () => []),
   campaignPeriod: vi.fn(async () => []),

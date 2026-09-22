@@ -235,6 +235,9 @@ const AR_TO_EN = {
   "المدير العام": "General manager",
   // How far back every import reads.
   "مدى البيانات المستوردة": "How much history to import",
+  "المبالغ مخزَّنة بعملة حسابك الإعلاني": "Amounts are stored in your ad account's currency",
+  "وهي مثبَّتة على 1. لكل عملة أخرى أدخِل: كم وحدة منها تساوي 1 {base}؟": "which is fixed at 1. For every other currency, enter how many of its units equal 1 {base}.",
+  "الأسعار الابتدائية في النظام محسوبة على أساس الدرهم، فهي غير صحيحة لحسابك. راجِعها قبل الاعتماد على أي رقم محوَّل.": "The built-in starting rates assume a dirham base, so they are wrong for your account. Review them before relying on any converted figure.",
   "تعذّر قراءة هذا الإعداد": "Could not read this setting",
   "إن كان الخادم يعمل منذ ما قبل هذه الميزة، أعِد تشغيله.": "If the server has been running since before this feature, restart it.",
   "يحدّد من أي تاريخ يقرأ النظام حملات Meta ومحادثات واتساب. الحالي": "Decides how far back Meta campaigns and WhatsApp conversations are read. Currently",

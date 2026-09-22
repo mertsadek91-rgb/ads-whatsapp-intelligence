@@ -57,12 +57,37 @@ const ISO_TO_REGION = {
   GB: "GEO_R_UK_IE", IE: "GEO_R_UK_IE",
   FR: "GEO_R_EU", DE: "GEO_R_EU", IT: "GEO_R_EU", ES: "GEO_R_EU",
   TR: "GEO_R_EU", // the sheet has no separate Turkey region; EU is its closest bucket
-  RU: "GEO_R_CIS",
+  RU: "GEO_R_CIS", KZ: "GEO_R_CIS",   // +7 resolves to both; CIS covers both
+  // The Caribbean and Pacific members of the +1 numbering plan. They now
+  // resolve to themselves instead of being recorded as the United States, and
+  // LATAM is the closest existing bucket — the UN groups the region as "Latin
+  // America and the Caribbean" — so they get a region without inventing a tag
+  // for two dozen countries a curated per-country list would never carry.
+  // Same reasoning as TR above.
+  BS: "GEO_R_LATAM", BB: "GEO_R_LATAM", AI: "GEO_R_LATAM", AG: "GEO_R_LATAM",
+  VG: "GEO_R_LATAM", VI: "GEO_R_LATAM", KY: "GEO_R_LATAM", BM: "GEO_R_LATAM",
+  GD: "GEO_R_LATAM", TC: "GEO_R_LATAM", JM: "GEO_R_LATAM", MS: "GEO_R_LATAM",
+  SX: "GEO_R_LATAM", LC: "GEO_R_LATAM", DM: "GEO_R_LATAM", VC: "GEO_R_LATAM",
+  PR: "GEO_R_LATAM", DO: "GEO_R_LATAM", TT: "GEO_R_LATAM", KN: "GEO_R_LATAM",
+  // Pacific territories in the same plan; North America is their administrative
+  // bucket, and there is no Pacific region tag to put them in.
+  MP: "GEO_R_NORTH_AMERICA", GU: "GEO_R_NORTH_AMERICA", AS: "GEO_R_NORTH_AMERICA",
 };
 
-/** Countries we see in the data that the sheet has no GEO_* tag for. */
+/**
+ * Countries we see in the data that the sheet has no GEO_* tag for. Expected to
+ * be non-empty: GEO_* is a curated per-country list, and the phone map also
+ * resolves two dozen Caribbean and Pacific members of the +1 plan that no
+ * curated list would carry. They are not lost — every one of them has a region
+ * below, which is what stops a lead being placed nowhere.
+ */
 export function unmappedCountries(iso2List) {
   return [...new Set(iso2List.filter((c) => c && !ISO_TO_GEO[c]))].sort();
+}
+
+/** Countries the phone map can name but that would be placed nowhere at all. */
+export function unplacedCountries(iso2List) {
+  return [...new Set(iso2List.filter((c) => c && !ISO_TO_GEO[c] && !ISO_TO_REGION[c]))].sort();
 }
 
 /**
@@ -180,4 +205,4 @@ export function segmentTag(tags = []) {
   return TAG_INDEX.has(tag) ? { tag, category: "trader_segment", evidence: `${kind} + ${level}` } : null;
 }
 
-export default { ruleTags, segmentTag, languageTag, unmappedCountries, RULE_VERSION };
+export default { ruleTags, segmentTag, languageTag, unmappedCountries, unplacedCountries, RULE_VERSION };

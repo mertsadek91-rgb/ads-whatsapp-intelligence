@@ -10,7 +10,7 @@ import {
   CATEGORIES, TAG_INDEX, TAG_COUNT, aiTags, aiCategories, exclusiveGroups,
   sourceOf, tagLabel, categoryLabel, isKnownTag,
 } from "../src/profiles/brokerageTags.js";
-import { ruleTags, segmentTag, languageTag, unmappedCountries } from "../src/lib/tagRules.js";
+import { ruleTags, segmentTag, languageTag, unplacedCountries } from "../src/lib/tagRules.js";
 import { COUNTRIES } from "../src/lib/phoneCountry.js";
 import { validateAiTags } from "../src/lib/tagAssign.js";
 
@@ -97,14 +97,29 @@ describe("rule tags", () => {
     expect(t).toContain("GEO_R_MENA");
   });
 
-  it("covers every country the phone map can identify", () => {
+  it("places every country the phone map can identify", () => {
     // The sheet defined 24 countries; Algeria, Iraq and Yemen alone are 1,809 of
     // our contacts and had none. This guard fails if phoneCountry ever learns a
-    // new dial code without a matching tag, which is how the gap appeared.
-    expect(unmappedCountries(COUNTRIES.map((c) => c.iso2))).toEqual([]);
+    // new dial code and nothing places it, which is how that gap appeared.
+    //
+    // "Placed" rather than "has its own GEO_ tag": the phone map now resolves
+    // the whole +1 numbering plan, two dozen members of which are island states
+    // no curated per-country list would ever carry. What must never happen is a
+    // lead with a country and nowhere to put it.
+    expect(unplacedCountries(COUNTRIES.map((c) => c.iso2))).toEqual([]);
     expect(tagsOf({ phone: "213612345678" })).toContain("GEO_DZA"); // Algeria
     expect(tagsOf({ phone: "9647701234567" })).toContain("GEO_IRQ"); // Iraq
     expect(tagsOf({ phone: "967712345678" })).toContain("GEO_YEM"); // Yemen
+  });
+
+  it("puts the countries +1 and +7 used to swallow somewhere of their own", () => {
+    // Before, a Canadian lead carried GEO_USA and a Kazakh one GEO_RUS — not a
+    // gap but a wrong answer, which no "unmapped" report would ever surface.
+    expect(tagsOf({ phone: "14165551234" })).toContain("GEO_CAN");
+    expect(tagsOf({ phone: "14165551234" })).not.toContain("GEO_USA");
+    expect(tagsOf({ phone: "77012345678" })).not.toContain("GEO_RUS");
+    expect(tagsOf({ phone: "77012345678" })).toContain("GEO_R_CIS");
+    expect(tagsOf({ phone: "18765551234" })).toContain("GEO_R_LATAM"); // Jamaica
   });
 
   it("gives an unrecognisable number no country tag at all", () => {

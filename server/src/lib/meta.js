@@ -83,6 +83,26 @@ export async function fbGet(url, params, attempt = 0) {
   }
 }
 
+/**
+ * The ad account's own settings — most importantly the currency it is BILLED
+ * in, which is the currency every `spend` figure in every insights response is
+ * denominated in. Nothing asked Meta for it before, so spend was written into
+ * columns named `*_aed` whatever the account actually billed in, and a
+ * USD-billed account had every spend, CPC, CPM and cost-per-result silently
+ * mislabelled — then multiplied again by an AED-based display rate.
+ */
+export async function accountInfo() {
+  const t = await token();
+  const r = await fbGet(`${API()}/act_${acctOrThrow()}`, {
+    fields: "account_currency,name,timezone_name", access_token: t,
+  });
+  return {
+    currency: String(r.data?.account_currency || "").toUpperCase() || null,
+    name: r.data?.name || null,
+    timezone: r.data?.timezone_name || null,
+  };
+}
+
 async function insights(params) {
   const t = await token();
   let url = `${API()}/act_${acctOrThrow()}/insights`;
@@ -412,4 +432,4 @@ export async function campaignMonthly(since, until) {
   }));
 }
 
-export default { hasToken, fbGet, adPeriod, adsetPeriod, campaignPeriod, campaignDaily, adDaily, adsetDaily, campaignMonthly, countryDaily, adCreatives, adsManagerUrl };
+export default { hasToken, fbGet, accountInfo, adPeriod, adsetPeriod, campaignPeriod, campaignDaily, adDaily, adsetDaily, campaignMonthly, countryDaily, adCreatives, adsManagerUrl };
