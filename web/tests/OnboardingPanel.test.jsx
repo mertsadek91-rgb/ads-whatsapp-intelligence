@@ -35,6 +35,26 @@ const show = (role = "admin") =>
 beforeEach(() => { get.mockReset(); try { sessionStorage.clear(); } catch { /* ignore */ } });
 
 describe("onboarding checklist", () => {
+  it("survives a response that has no items at all", async () => {
+    // Not hypothetical: Layout mounts this panel, and a test that stubbed every
+    // api.get with {} made it throw inside the effect's .then — an unhandled
+    // rejection, invisible to the catch, that failed the whole run on CI while
+    // passing locally. A page must not be brought down by its to-do list.
+    get.mockResolvedValue({});
+    const { container } = show();
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    expect(container.querySelector(".onboarding")).toBeNull();
+  });
+
+  it("stays silent when the response says pending but lists nothing", async () => {
+    // A count and a list that disagree is a server bug; rendering nothing is
+    // the right answer to it, not a crash.
+    get.mockResolvedValue({ pending: 3, blocking: 0 });
+    const { container } = show();
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    expect(container.querySelector(".onboarding")).toBeNull();
+  });
+
   it("lists what is still missing", async () => {
     get.mockResolvedValue(status());
     show();

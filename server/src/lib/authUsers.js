@@ -86,8 +86,15 @@ export async function deleteUser(userId) {
  * configure, recoverable only by direct SQL.
  */
 export async function activeAdminCount() {
+  // Bound, not inlined. Written as bare words — `role = admin` — MySQL read
+  // them as column names and every call threw "Unknown column 'admin'", so the
+  // guard below never guarded anything: the check meant to stop an operator
+  // deleting the last administrator failed with an error instead of a refusal.
+  // Nothing caught it because every unit test mocks the driver; the install
+  // test against a real MySQL did, the first time it ran.
   const [{ n }] = await query(
-    "select count(*) n from ads_users where role = admin and status = active");
+    "select count(*) n from ads_users where role = ? and status = ?",
+    ["admin", "active"]);
   return Number(n || 0);
 }
 

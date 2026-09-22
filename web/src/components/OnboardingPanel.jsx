@@ -31,10 +31,17 @@ export default function OnboardingPanel({ role }) {
     return () => { alive = false; };
   }, []);
 
-  if (dismissed || !status || status.pending === 0) return null;
+  // Read the list, then decide — rather than trusting `pending` and reaching
+  // for `items` afterwards. A response without `items` (a partial payload, an
+  // older server, a route that answered {}) made this throw INSIDE the effect's
+  // .then, where the catch below cannot see it: an unhandled rejection that
+  // took down whatever page the panel was sitting on. A to-do list must never
+  // be able to do that, which is what the catch was already there to promise.
+  const items = Array.isArray(status?.items) ? status.items : [];
+  const pending = items.filter((i) => !i.done);
+  if (dismissed || !pending.length) return null;
 
-  const pending = status.items.filter((i) => !i.done);
-  const doneCount = status.items.length - pending.length;
+  const doneCount = items.length - pending.length;
   const label = (i) => (lang === "en" ? i.en : i.ar);
   const why = (i) => (lang === "en" ? i.why_en : i.why_ar);
 
@@ -59,7 +66,7 @@ export default function OnboardingPanel({ role }) {
       {open && (
         <div className="onboarding-body">
           <p className="onboarding-progress">
-            {t("اكتمل {done} من {total}", { done: doneCount, total: status.items.length })}
+            {t("اكتمل {done} من {total}", { done: doneCount, total: items.length })}
             {" — "}
             {t("التطبيق يعمل، وهذه تزيد ما يمكنه عرضه.",
                "the app works; these widen what it can show you.")}
@@ -81,7 +88,7 @@ export default function OnboardingPanel({ role }) {
             <details className="onboarding-done">
               <summary>{t("المكتمل ({n})", { n: doneCount })}</summary>
               <ul>
-                {status.items.filter((i) => i.done).map((i) => (
+                {items.filter((i) => i.done).map((i) => (
                   <li key={i.key}><span className="tick">✓</span> {label(i)}</li>
                 ))}
               </ul>
