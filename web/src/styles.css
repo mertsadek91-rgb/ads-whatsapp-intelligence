@@ -12,36 +12,36 @@
    Every pre-existing class name is preserved on purpose: the 18 pages keep
    their markup and simply inherit the new look. */
 :root{
-  /* accent — DashSpace indigo */
-  --primary:#6366F1; --on-primary:#ffffff; --primary-hover:#4F46E5; --primary-tint:#EEF2FF;
-  --secondary:#06B6D4; --secondary-tint:#ECFEFF;
+  /* Modern Professional Color Palette */
+  --primary:#4F46E5; --on-primary:#ffffff; --primary-hover:#4338CA; --primary-tint:#EEF2FF;
+  --secondary:#0EA5E9; --secondary-tint:#F0F9FF;
 
   /* text */
-  --ink:#111827;          /* headings */
-  --ink-body:#4B5563;     /* body copy */
-  --ink-muted:#9CA3AF;    /* secondary/labels */
+  --ink:#0F172A;          /* headings */
+  --ink-body:#475569;     /* body copy */
+  --ink-muted:#94A3B8;    /* secondary/labels */
 
   /* surfaces */
-  --page:#FAFAFD;         /* app canvas */
+  --page:#F8FAFC;         /* app canvas */
   --canvas:#ffffff;       /* cards */
-  --surface-1:#F8FAFC;    /* subtle fills, table zebra, hovers */
-  --surface-2:#F1F5F9;    /* stronger fill */
-  --border:#E9EAF0;       /* hairlines */
-  --border-soft:#EEF2FF;  /* card-header divider (indigo-50) */
+  --surface-1:#F1F5F9;    /* subtle fills, table zebra, hovers */
+  --surface-2:#E2E8F0;    /* stronger fill */
+  --border:#E2E8F0;       /* hairlines */
+  --border-soft:#F1F5F9;  /* card-header divider */
 
   /* status */
-  --success:#16A34A; --success-tint:#DCFCE7;
-  --warning:#D97706; --warning-tint:#FEF3C7;
-  --danger:#DC2626;  --danger-tint:#FEE2E2;
-  --info:#0891B2;    --info-tint:#CFFAFE;
+  --success:#10B981; --success-tint:#D1FAE5;
+  --warning:#F59E0B; --warning-tint:#FEF3C7;
+  --danger:#EF4444;  --danger-tint:#FEE2E2;
+  --info:#06B6D4;    --info-tint:#CFFAFE;
 
-  --radius-sm:6px; --radius-md:8px; --radius-lg:10px;
-  --shadow-sm:0 2px 6px rgba(47,43,61,.08);
-  --shadow-md:0 4px 18px rgba(47,43,61,.10);
-  --shadow-lg:0 12px 34px rgba(47,43,61,.16);
+  --radius-sm:8px; --radius-md:10px; --radius-lg:14px;
+  --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.05);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -4px rgba(0,0,0,0.05);
   --sidebar-w:264px;
 
-  /* legacy aliases — older inline styles still resolve correctly */
+  /* legacy aliases */
   --purple:var(--ink); --purple2:var(--ink); --orange:var(--primary); --green:var(--success);
   --red:var(--danger); --gray:var(--ink-muted); --blue:var(--info); --bg:var(--page);
   --card:var(--canvas); --line:var(--border);
@@ -68,9 +68,9 @@ h1,h2,h3,h4{color:var(--ink);line-height:1.35}
 }
 .sidebar-brand{display:flex;align-items:center;gap:10px;padding:2px 6px 16px;margin-bottom:6px;border-bottom:1px solid var(--border)}
 .brand-mark{
-  width:36px;height:36px;flex:0 0 36px;border-radius:9px;display:grid;place-items:center;
-  background:linear-gradient(135deg,var(--primary),#8B5CF6);color:#fff;font-weight:800;font-size:14px;
-  box-shadow:0 6px 14px rgba(99,102,241,.32);
+  width:36px;height:36px;flex:0 0 36px;border-radius:10px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--primary),#6366F1);color:#fff;font-weight:800;font-size:15px;
+  box-shadow:0 4px 10px rgba(79, 70, 229, 0.25);
 }
 .sidebar h1{font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.01em}
 .sidebar .sub{font-size:11px;color:var(--ink-muted);margin-top:1px}
@@ -82,8 +82,8 @@ h1,h2,h3,h4{color:var(--ink);line-height:1.35}
 }
 .nav a{
   display:flex;align-items:center;gap:10px;color:var(--ink-body);
-  padding:9px 10px;border-radius:var(--radius-md);font-size:13.5px;font-weight:500;
-  transition:background .14s ease,color .14s ease;
+  padding:10px 12px;border-radius:var(--radius-md);font-size:14px;font-weight:500;
+  transition:all .2s ease;
 }
 .nav a svg{width:17px;height:17px;flex:0 0 17px;opacity:.75}
 .nav a:hover{background:var(--surface-1);color:var(--ink)}
@@ -124,9 +124,9 @@ h1,h2,h3,h4{color:var(--ink);line-height:1.35}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
   background:var(--primary);color:var(--on-primary);border:1px solid transparent;
-  border-radius:var(--radius-md);padding:9px 18px;font-size:13px;font-weight:600;
-  letter-spacing:.012em;transition:background .15s ease,box-shadow .15s ease,transform .05s ease;
-  box-shadow:0 1px 2px rgba(47,43,61,.10);
+  border-radius:var(--radius-md);padding:10px 20px;font-size:13.5px;font-weight:600;
+  letter-spacing:.01em;transition:all .2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
 }
 .btn:hover{background:var(--primary-hover)}
 .btn:active{transform:translateY(1px)}
@@ -149,7 +149,7 @@ h1,h2,h3,h4{color:var(--ink);line-height:1.35}
 }
 .kpi:hover{box-shadow:var(--shadow-md)}
 .kpi .label{font-size:12px;color:var(--ink-muted);margin-bottom:6px;font-weight:500}
-.kpi .val{font-size:25px;font-weight:800;color:var(--ink);line-height:1.15;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .val{font-size:28px;font-weight:800;color:var(--ink);line-height:1.2;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 
 .section{
   background:var(--canvas);border:1px solid var(--border);border-radius:var(--radius-lg);
@@ -179,11 +179,12 @@ h1,h2,h3,h4{color:var(--ink);line-height:1.35}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th,td{padding:11px 14px;text-align:start;white-space:nowrap}
 th{
-  background:var(--surface-1);color:var(--ink-body);font-size:11px;font-weight:700;
+  background:var(--surface-1);color:var(--ink-body);font-size:11.5px;font-weight:700;
   text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;z-index:1;
   cursor:pointer;user-select:none;border-bottom:1px solid var(--border);
+  padding:12px 14px;
 }
-td{color:var(--ink-body);border-bottom:1px solid #F3F4F6}
+td{color:var(--ink-body);border-bottom:1px solid var(--border)}
 td.nm{font-weight:600;color:var(--ink);white-space:normal;max-width:280px}
 tbody tr{transition:background .12s ease}
 tr:hover td{background:var(--surface-1)}
@@ -221,12 +222,18 @@ tr:hover td{background:var(--surface-1)}
 
 /* ============================ forms ============================ */
 input,select,textarea{
-  font-family:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--border);
+  font-family:inherit;font-size:13.5px;padding:9px 12px;border:1px solid var(--border);
   border-radius:var(--radius-md);background:var(--canvas);color:var(--ink);
-  transition:border-color .14s ease,box-shadow .14s ease;
+  transition:all .2s ease;
+  box-shadow:var(--shadow-sm);
 }
 input::placeholder,textarea::placeholder{color:var(--ink-muted)}
-input:focus,select:focus,textarea:focus{outline:0;border-color:var(--primary);box-shadow:0 0 0 3px rgba(99,102,241,.16)}
+/* The shadow above belongs to a field, not to a control the browser draws
+   itself. Without this, every radio and checkbox carries a card shadow. */
+input[type=radio],input[type=checkbox]{box-shadow:none}
+input:focus,select:focus,textarea:focus{
+  outline:0;border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-tint);
+}
 input:disabled,select:disabled,textarea:disabled{background:var(--surface-1);color:var(--ink-muted)}
 .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
 
