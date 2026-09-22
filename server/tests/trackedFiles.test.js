@@ -67,6 +67,15 @@ describe.skipIf(!tracked)("what this repository publishes", () => {
     expect(ignored, "server/data/ is not actually ignored — check for a trailing comment on the pattern line").toBe(true);
   });
 
+  it("keeps the licence certificate the private repository depends on", () => {
+    // The admin UI's design is used under an Envato Elements licence. The
+    // certificate is the proof, and a certificate nobody can find is the same
+    // as not having one — so it lives with the code, not in an inbox.
+    expect(tracked).toContain("licenses/dashspace-envato-elements.txt");
+    expect(tracked).toContain("LICENSE");
+    expect(tracked).toContain("NOTICE.md");
+  });
+
   it("keeps .env.example, which is the file that documents the rest", () => {
     // The ignore rules deny `.env.*` and then re-admit this one. A change that
     // dropped the negation would silently delete the install documentation.

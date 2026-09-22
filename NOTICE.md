@@ -19,17 +19,34 @@ container with no network access and no guarantee that any Arabic font is
 installed, and a fallback font breaks Arabic ligature shaping in a way that is
 obvious to the reader.
 
-## Visual language — unresolved
+## Visual language — licensed
 
-`web/src/styles.css` states in its own header that the design was adapted from
-the **DashSpace** admin template: the light lavender canvas, white elevated
-cards, indigo accent, uppercase table headers and 8px radii. That template is a
-commercial product, and its licence — not this one — governs whether a derived
-stylesheet may be redistributed.
+The admin UI's look — light lavender canvas, white elevated cards, indigo
+accent, uppercase table headers, 8px radii — was informed by the **DashSpace**
+admin dashboard template by `freekytheme`, licensed from Envato Elements:
 
-This is the single reason the project ships as "all rights reserved". It is
-resolved by either confirming redistribution rights in writing, or restating the
-stylesheet as original work. Nothing else here is blocked on it.
+| | |
+|---|---|
+| Item licence code | `9FJS2WLKE3` |
+| Licence date | 22 September 2026 |
+| Terms | Envato Elements User Terms and License |
+| Certificate | `licenses/dashspace-envato-elements.txt` |
+
+**No file from the template ships in this repository.** `web/src/styles.css` is
+614 lines of hand-written CSS that borrows the design language — the palette,
+the elevation, the radii, the table treatment — and implements it against this
+product's own markup, Arabic-first with logical properties throughout. There is
+no vendored theme directory, no template JavaScript, no second stylesheet.
+
+The licence is commercial, worldwide, and runs for the life of this End Product.
+What it does not grant is the right to redistribute the design as material
+others can build from — which is what publishing this repository publicly would
+amount to, regardless of intent. Hence the repository stays private, and hence
+`LICENSE` says all rights reserved. It is the only reason it does.
+
+A second product built on the same design needs its own registered item usage,
+obtained while an Envato subscription is active. `licenses/README.md` records
+that condition where it will be found.
 
 ## Runtime dependencies
 

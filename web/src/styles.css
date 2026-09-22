@@ -4,6 +4,11 @@
    RTL + English LTR via logical properties, Cairo for Arabic / Inter for
    Latin, and mobile-first responsive behaviour.
 
+   Licensed: Envato Elements item licence 9FJS2WLKE3 (certificate in
+   licenses/). Every rule below is written for this app's own markup — no
+   template file ships here — but the licence is why this repository is
+   private rather than public. See LICENSE and NOTICE.md.
+
    Every pre-existing class name is preserved on purpose: the 18 pages keep
    their markup and simply inherit the new look. */
 :root{
