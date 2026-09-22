@@ -67,8 +67,7 @@ export async function setBaseCurrency(code, { source = "meta" } = {}) {
   if (previous === next) return { currency: next, changed: false };
 
   await query(
-    `insert into ads_settings (k, v) values (?, ?)
-     as new on duplicate key update v = new.v, updated_at = now()`,
+    `insert into ads_settings (k, v) values (?, ?) on duplicate key update v = values(v), updated_at = now()`,
     [KEY, next]);
   cached = next;
   // Loud on purpose: it means every stored figure was being labelled with the

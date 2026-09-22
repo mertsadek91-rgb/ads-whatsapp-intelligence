@@ -67,11 +67,10 @@ export async function syncOne(waId, thread) {
   const m = computeMeta(thread);
   const la = m.last_activity ? new Date(m.last_activity).toISOString().slice(0, 19).replace("T", " ") : null;
   await query(
-    `insert into ads_conversation_meta (${COLS.join(",")}) values (?,?,?,?,?,?,?,?,?,?,?)
-     as new on duplicate key update msg_total=new.msg_total, customer_msgs=new.customer_msgs,
-       agent_msgs=new.agent_msgs, bot_msgs=new.bot_msgs, human_replied=new.human_replied,
-       conv_type=new.conv_type, last_dir=new.last_dir, replied_after_agent=new.replied_after_agent,
-       first_human_response_min=new.first_human_response_min, last_activity=new.last_activity, synced_at=now()`,
+    `insert into ads_conversation_meta (${COLS.join(",")}) values (?,?,?,?,?,?,?,?,?,?,?) on duplicate key update msg_total=values(msg_total), customer_msgs=values(customer_msgs),
+       agent_msgs=values(agent_msgs), bot_msgs=values(bot_msgs), human_replied=values(human_replied),
+       conv_type=values(conv_type), last_dir=values(last_dir), replied_after_agent=values(replied_after_agent),
+       first_human_response_min=values(first_human_response_min), last_activity=values(last_activity), synced_at=now()`,
     [waId, m.msg_total, m.customer_msgs, m.agent_msgs, m.bot_msgs, m.human_replied,
      m.conv_type, m.last_dir, m.replied_after_agent, m.first_human_response_min, la]
   );

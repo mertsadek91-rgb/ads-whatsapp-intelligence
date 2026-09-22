@@ -310,7 +310,7 @@ ${JSON.stringify(compact).slice(0, 45000)}`;
   const out = await ds.chatJSON(system, user, `emp:${agent}`);
   const data = { ...out, period: { since: since || null, until: until || null }, conversations: rows.length };
   await query(
-    `insert into ads_ai_insights (k, data) values (?, ?) as new on duplicate key update data=new.data, generated_at=now()`,
+    `insert into ads_ai_insights (k, data) values (?, ?) on duplicate key update data=values(data), generated_at=now()`,
     [empKey(agent, lang), JSON.stringify(data)]
   );
   res.json({ generated: true, generated_at: new Date(), ...data });
@@ -403,7 +403,7 @@ You are a sales manager and quality coach here, writing ONE focused coaching exa
   const out = await ds.chatJSON(system, user, `coach:${agent}:${pattern_key}`);
   const data = { pattern_key, pattern_label: label, affected_count: group.count, ...out };
   await query(
-    `insert into ads_ai_insights (k, data) values (?, ?) as new on duplicate key update data=new.data, generated_at=now()`,
+    `insert into ads_ai_insights (k, data) values (?, ?) on duplicate key update data=values(data), generated_at=now()`,
     [coachKey(agent, pattern_key, lang), JSON.stringify(data)]
   );
   res.json({ generated: true, generated_at: new Date(), ...data });
@@ -503,7 +503,7 @@ ${en ? "Data:" : "البيانات:"}
 ${JSON.stringify(compact).slice(0, 50000)}`;
   const out = await ds.chatJSON(system, user);
   await query(
-    `insert into ads_ai_insights (k, data) values ('themes', ?) as new on duplicate key update data=new.data, generated_at=now()`,
+    `insert into ads_ai_insights (k, data) values ('themes', ?) on duplicate key update data=values(data), generated_at=now()`,
     [JSON.stringify(out)]
   );
   res.json({ generated: true, generated_at: new Date(), ...out });

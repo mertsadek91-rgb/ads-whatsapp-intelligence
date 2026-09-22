@@ -12,8 +12,7 @@ export async function loadJobState(jobName) {
 
 export async function saveJobState(jobName, state) {
   await query(
-    `insert into ads_job_state (job_name, state_json) values (?, ?)
-     as new on duplicate key update state_json = new.state_json`,
+    `insert into ads_job_state (job_name, state_json) values (?, ?) on duplicate key update state_json = values(state_json)`,
     [jobName, JSON.stringify(state)]
   );
 }

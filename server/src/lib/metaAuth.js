@@ -18,7 +18,7 @@ async function getSetting(k) {
 }
 async function setSetting(k, v) {
   await query(
-    "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
+    "insert into ads_settings (k, v) values (?, ?) on duplicate key update v=values(v), updated_at=now()",
     [k, v]
   );
 }

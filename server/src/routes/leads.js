@@ -73,11 +73,10 @@ router.patch("/:waId", wrap(async (req, res) => {
   await query(
     `insert into ads_lead_review
        (wa_id, phone, account_type, deposit_count, deposit_total_aed, review_status, reviewed_by, reviewed_at, notes)
-     values (?,?,?,?,?,?,?,now(),?)
-     as new on duplicate key update
-       phone=new.phone, account_type=new.account_type, deposit_count=new.deposit_count,
-       deposit_total_aed=new.deposit_total_aed, review_status=new.review_status,
-       reviewed_by=new.reviewed_by, reviewed_at=now(), notes=new.notes`,
+     values (?,?,?,?,?,?,?,now(),?) on duplicate key update
+       phone=values(phone), account_type=values(account_type), deposit_count=values(deposit_count),
+       deposit_total_aed=values(deposit_total_aed), review_status=values(review_status),
+       reviewed_by=values(reviewed_by), reviewed_at=now(), notes=values(notes)`,
     [waId, phone, accountType, depositCount, depositTotal, reviewStatus, changedBy, notes]
   );
   await query(

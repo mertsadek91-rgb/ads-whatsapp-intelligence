@@ -55,7 +55,7 @@ export async function sendEnabled() {
 }
 export async function setSendEnabled(on) {
   await query(
-    "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
+    "insert into ads_settings (k, v) values (?, ?) on duplicate key update v=values(v), updated_at=now()",
     [SETTINGS_KEY, on ? "1" : "0"]);
   return sendEnabled();
 }

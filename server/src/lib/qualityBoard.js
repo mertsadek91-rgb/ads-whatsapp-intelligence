@@ -50,7 +50,7 @@ export async function readCalibration() {
 export async function saveCalibration({ weights = {}, thresholds = {} } = {}) {
   const clean = { weights: resolveWeights(weights), thresholds: resolveThresholds(thresholds) };
   await query(
-    "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
+    "insert into ads_settings (k, v) values (?, ?) on duplicate key update v=values(v), updated_at=now()",
     [CALIBRATION_KEY, JSON.stringify(clean)]);
   return clean;
 }
@@ -459,13 +459,12 @@ export async function saveSnapshot(board, { date = null } = {}) {
          (snapshot_date, agent_name, window_days, productivity, persuasion, compliance,
           conversion, response, overall, overall_raw, sample_size, analyzed_pct,
           confidence, eligible_top, ineligible_reasons, components)
-       values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-       as new on duplicate key update
-         productivity=new.productivity, persuasion=new.persuasion, compliance=new.compliance,
-         conversion=new.conversion, response=new.response, overall=new.overall,
-         overall_raw=new.overall_raw, sample_size=new.sample_size, analyzed_pct=new.analyzed_pct,
-         confidence=new.confidence, eligible_top=new.eligible_top,
-         ineligible_reasons=new.ineligible_reasons, components=new.components`,
+       values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) on duplicate key update
+         productivity=values(productivity), persuasion=values(persuasion), compliance=values(compliance),
+         conversion=values(conversion), response=values(response), overall=values(overall),
+         overall_raw=values(overall_raw), sample_size=values(sample_size), analyzed_pct=values(analyzed_pct),
+         confidence=values(confidence), eligible_top=values(eligible_top),
+         ineligible_reasons=values(ineligible_reasons), components=values(components)`,
       [snapDate, r.name, board.days, r.productivity, r.persuasion, r.compliance,
        r.conversion, r.response, r.overall, r.overall_raw, r.sample_size, r.analyzed_pct,
        r.confidence, r.eligible ? 1 : 0, JSON.stringify(r.reasons || []),

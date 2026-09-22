@@ -110,8 +110,7 @@ export async function refreshBoards({ days = 7, hours = 6, concurrency = 4, now 
     }
 
     await query(
-      `insert into ads_report_runs (run_date, summary) values (?, ?)
-       as new on duplicate key update built_at=now(), summary=new.summary`,
+      `insert into ads_report_runs (run_date, summary) values (?, ?) on duplicate key update built_at=now(), summary=values(summary)`,
       [today, "board-refresh: " + JSON.stringify({
         window: out.window, contacts_updated: out.contacts_updated,
         conversations_reread: out.conversations_reread, reread_failed: out.reread_failed,

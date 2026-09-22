@@ -198,13 +198,12 @@ export async function snapshotContactStatus({ now = new Date(), days = 30 } = {}
   }
   // contacted_at: set to now() only when a row flips 0 -> 1; first_seen_date kept.
   await query(
-    `insert into ads_lead_followup (${cols.join(",")}) values ${values.join(",")}
-     as new on duplicate key update
-       created_date=new.created_date, country=new.country, owner=new.owner,
-       contacted_at = case when ads_lead_followup.contacted=0 and new.contacted=1 then now() else ads_lead_followup.contacted_at end,
-       contacted=new.contacted, first_human_response_min=new.first_human_response_min,
-       after_hours=new.after_hours, status=new.status, stage=new.stage,
-       source_ad_id=new.source_ad_id, est_cost_aed=new.est_cost_aed, updated_at=now()`,
+    `insert into ads_lead_followup (${cols.join(",")}) values ${values.join(",")} on duplicate key update
+       created_date=values(created_date), country=values(country), owner=values(owner),
+       contacted_at = case when ads_lead_followup.contacted=0 and values(contacted)=1 then now() else ads_lead_followup.contacted_at end,
+       contacted=values(contacted), first_human_response_min=values(first_human_response_min),
+       after_hours=values(after_hours), status=values(status), stage=values(stage),
+       source_ad_id=values(source_ad_id), est_cost_aed=values(est_cost_aed), updated_at=now()`,
     params);
   return { snapshotted: leads.length };
 }

@@ -358,8 +358,7 @@ router.post("/business/test", justTest(businessValidator.validate));
 router.post("/business/save", testThenSave("business", businessValidator.validate, async (body) => {
   const { query } = await import("../db.js");
   await query(
-    `insert into ads_settings (k, v) values (?, ?)
-     as new on duplicate key update v = new.v, updated_at = now()`,
+    `insert into ads_settings (k, v) values (?, ?) on duplicate key update v = values(v), updated_at = now()`,
     ["business_input", JSON.stringify({
       websiteUrl: body.websiteUrl || "", description: body.description || "",
       language: body.language === "en" ? "en" : "ar",

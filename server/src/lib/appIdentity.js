@@ -67,8 +67,7 @@ export async function getIdentity({ fresh = false } = {}) {
 export async function saveIdentity(patch) {
   const next = sanitizeIdentity({ ...(await getIdentity({ fresh: true })), ...(patch || {}) });
   await query(
-    `insert into ads_settings (k, v) values (?, ?)
-     as new on duplicate key update v = new.v, updated_at = now()`,
+    `insert into ads_settings (k, v) values (?, ?) on duplicate key update v = values(v), updated_at = now()`,
     [IDENTITY_KEY, JSON.stringify(next)]);
   cache = next;
   cachedAt = Date.now();

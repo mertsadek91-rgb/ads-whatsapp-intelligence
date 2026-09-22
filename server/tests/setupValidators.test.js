@@ -46,14 +46,20 @@ describe("database validator", () => {
     expect(r.action).toBe("create_database");
   });
 
-  it("refuses a MySQL older than 8.0.19, because INSERT ... AS new needs it", () => {
-    // Accepting an old server means ensureSchema succeeds and then every single
-    // ingest fails later — a far worse failure than refusing here.
+  it("refuses a server too old for the schema, on either product", () => {
+    // Accepting a server that cannot run what we write means ensureSchema
+    // succeeds and every later write fails — a far worse failure than refusing
+    // here. The floor is what the SCHEMA needs (JSON columns), not a syntax
+    // version: the upserts are written in a form both products accept.
     expect(dbV.versionAtLeast("8.0.19")).toBe(true);
-    expect(dbV.versionAtLeast("8.0.42")).toBe(true);
     expect(dbV.versionAtLeast("8.4.0")).toBe(true);
-    expect(dbV.versionAtLeast("8.0.18")).toBe(false);
-    expect(dbV.versionAtLeast("5.7.44")).toBe(false);
+    expect(dbV.versionAtLeast("5.7.44")).toBe(true);
+    expect(dbV.versionAtLeast("5.6.51")).toBe(false);
+    // MariaDB's number looks newer than MySQL's and means something else, so it
+    // is measured against its own floor rather than sailing past MySQL's.
+    expect(dbV.versionAtLeast("11.8.9-MariaDB-log")).toBe(true);
+    expect(dbV.versionAtLeast("10.2.0-MariaDB")).toBe(true);
+    expect(dbV.versionAtLeast("10.1.9-MariaDB")).toBe(false);
     expect(dbV.versionAtLeast("garbage")).toBe(false);
   });
 

@@ -46,12 +46,8 @@ export const HINTS = {
     fix: "ALTER USER <user>@% IDENTIFIED WITH mysql_native_password BY <password>;",
   },
   DB_VERSION_TOO_OLD: {
-    ar: "إصدار MySQL قديم. التطبيق يستخدم صيغة INSERT ... AS new التي تتطلّب 8.0.19 أو أحدث.",
-    en: "MySQL is too old. The app uses INSERT ... AS new, which needs 8.0.19 or newer.",
-  },
-  DB_IS_MARIADB: {
-    ar: "هذا الخادم هو MariaDB لا MySQL. التطبيق يكتب بصيغة INSERT ... AS new التي أضافتها MySQL في 8.0.19 ولا تدعمها MariaDB بأي إصدار — فسيقرأ التطبيق بلا مشاكل وتفشل كل عمليات الحفظ. استخدم MySQL 8.0.19 أو أحدث.",
-    en: "This server is MariaDB, not MySQL. The app writes with INSERT ... AS new, added in MySQL 8.0.19 and not implemented in any MariaDB release — so reads would work and every save would fail. Use MySQL 8.0.19 or newer.",
+    ar: "إصدار قاعدة البيانات قديم جداً. المطلوب MySQL 5.7 أو أحدث، أو MariaDB 10.2 أو أحدث — وهو الإصدار الذي ظهرت فيه أعمدة JSON التي يستخدمها المخطّط.",
+    en: "The database is too old. MySQL 5.7+ or MariaDB 10.2+ is needed — that is where the JSON columns the schema uses arrived.",
   },
   DB_NO_CREATE_PRIVILEGE: {
     ar: "المستخدم لا يملك صلاحية إنشاء الجداول، وخطوة إنشاء الجداول ستفشل في منتصفها.",

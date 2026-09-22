@@ -12,10 +12,13 @@ import mysql from "mysql2/promise";
 import { fail, pass } from "../errorMap.js";
 import { sslOption, isTlsTrustError, normalizeSsl } from "../../lib/mysqlSsl.js";
 
-// The app uses INSERT ... AS new ON DUPLICATE KEY UPDATE (db.js), which MySQL
-// only understands from 8.0.19. Older servers accept ensureSchema() and then
-// fail on every single ingest, which is a much worse failure than refusing here.
-export const MIN_MYSQL = [8, 0, 19];
+// The app writes with ON DUPLICATE KEY UPDATE c = VALUES(c), which every MySQL
+// and every MariaDB understands — so the floor is only what the schema itself
+// needs (JSON columns, utf8mb4), not a syntax version. It briefly was 8.0.19,
+// because the upserts used the MySQL-only row-alias form; that cost a real
+// installation its whole wizard, silently, since reads and logins worked.
+export const MIN_MYSQL = [5, 7, 0];
+export const MIN_MARIADB = [10, 2, 0];
 
 /**
  * MariaDB is not MySQL, and the version number says the opposite.
@@ -33,14 +36,20 @@ export const MIN_MYSQL = [8, 0, 19];
  */
 export const isMariaDb = (versionString) => /mariadb/i.test(String(versionString || ""));
 
-export function versionAtLeast(versionString, min = MIN_MYSQL) {
-  if (isMariaDb(versionString)) return false;
+/**
+ * MariaDB is not MySQL, and its version number says the opposite: "11.8.9-
+ * MariaDB" compared as numbers is 11 against a MySQL minimum of 8, so it passes
+ * a check written for MySQL. Both are supported now, but they need their own
+ * floors — MariaDB 10.2 is where JSON columns arrived.
+ */
+export function versionAtLeast(versionString, min) {
+  const floor = min || (isMariaDb(versionString) ? MIN_MARIADB : MIN_MYSQL);
   const m = String(versionString || "").match(/(\d+)\.(\d+)\.(\d+)/);
   if (!m) return false;
   const got = [Number(m[1]), Number(m[2]), Number(m[3])];
   for (let i = 0; i < 3; i++) {
-    if (got[i] > min[i]) return true;
-    if (got[i] < min[i]) return false;
+    if (got[i] > floor[i]) return true;
+    if (got[i] < floor[i]) return false;
   }
   return true;
 }
@@ -96,10 +105,6 @@ export async function validate(input) {
   try {
     const warnings = [];
     const [[ver]] = await c.query("select version() v");
-    // Two different refusals: one is "upgrade", the other is "this is not the
-    // product you think it is". Saying "too old" about MariaDB 11 would send an
-    // operator looking for an upgrade that does not exist.
-    if (isMariaDb(ver.v)) return fail("DB_IS_MARIADB", `server reports ${ver.v}`);
     if (!versionAtLeast(ver.v)) {
       return fail("DB_VERSION_TOO_OLD", `server reports ${ver.v}`);
     }

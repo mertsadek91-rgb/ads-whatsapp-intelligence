@@ -139,7 +139,7 @@ const cacheGet = async (k) => {
   return typeof r[0].data === "string" ? JSON.parse(r[0].data) : r[0].data;
 };
 const cachePut = (k, data) => query(
-  "insert into ads_ai_insights (k, data) values (?, ?) as new on duplicate key update data=new.data, generated_at=now()",
+  "insert into ads_ai_insights (k, data) values (?, ?) on duplicate key update data=values(data), generated_at=now()",
   [k, JSON.stringify(data)]);
 
 // ---- Employee weekly ----

@@ -486,7 +486,7 @@ You are a Meta ads content strategist for this company. Derive what makes this a
   const lessons = await ds.chatJSON(lessonsSystem, lessonsUser, "post-insights:lessons");
   const playbook = Array.isArray(lessons.overall) ? lessons.overall : [];
   await query(
-    `insert into ads_ai_insights (k, data) values (?, ?) as new on duplicate key update data=new.data, generated_at=now()`,
+    `insert into ads_ai_insights (k, data) values (?, ?) on duplicate key update data=values(data), generated_at=now()`,
     [`posts:${lang}`, JSON.stringify({ overall: playbook })]
   );
 
@@ -513,8 +513,7 @@ You are a Meta ads content reviewer for this company. Judge EACH post against th
         const verdict = VERDICTS.has(p.verdict) ? p.verdict : "average";
         const score = Number.isFinite(Number(p.score)) ? Math.max(0, Math.min(100, Math.round(Number(p.score)))) : null;
         await query(
-          `insert into ads_post_insights (post_url, lang, verdict, score, why, improve) values (?,?,?,?,?,?)
-           as new on duplicate key update verdict=new.verdict, score=new.score, why=new.why, improve=new.improve, generated_at=now()`,
+          `insert into ads_post_insights (post_url, lang, verdict, score, why, improve) values (?,?,?,?,?,?) on duplicate key update verdict=values(verdict), score=values(score), why=values(why), improve=values(improve), generated_at=now()`,
           [String(p.post_url).slice(0, 512), lang, verdict, score,
            String(p.why || "").slice(0, 2000), String(p.improve || "").slice(0, 2000)]);
         evaluated++;

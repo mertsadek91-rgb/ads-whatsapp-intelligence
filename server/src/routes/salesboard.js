@@ -22,7 +22,7 @@ async function getCode() {
 }
 async function setCode(code) {
   await query(
-    "insert into ads_settings (k, v) values ('salesboard_token', ?) as new on duplicate key update v=new.v",
+    "insert into ads_settings (k, v) values ('salesboard_token', ?) on duplicate key update v=values(v)",
     [code]);
 }
 const linkFor = (code) => `/tv/${code}`;

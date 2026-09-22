@@ -138,8 +138,7 @@ export async function saveConfig(patch, { updatedBy = null } = {}) {
     const isSecret = SECRET_KEYS.has(k);
     const value = isSecret ? seal(String(raw ?? "")) : String(raw ?? "");
     await query(
-      `insert into app_config (k, v, is_secret, updated_by) values (?, ?, ?, ?)
-       as new on duplicate key update v=new.v, is_secret=new.is_secret, updated_by=new.updated_by`,
+      `insert into app_config (k, v, is_secret, updated_by) values (?, ?, ?, ?) on duplicate key update v=values(v), is_secret=values(is_secret), updated_by=values(updated_by)`,
       [k, value, isSecret ? 1 : 0, updatedBy]);
   }
   await hydrate();

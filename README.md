@@ -25,7 +25,7 @@
 
 ## التنصيب
 
-**ما تحتاجه:** Docker، أو Node 20+ مع MySQL 8.0.19 أو أحدث.
+**ما تحتاجه:** Docker، أو Node 20+ مع MySQL 5.7+ أو MariaDB 10.2+ (الأخيرة هي الافتراضية على أغلب الاستضافات المشتركة).
 
 <div dir="ltr">
 
@@ -213,7 +213,7 @@ in your business — and shows them to you for review before anything goes live.
 
 ## Installing
 
-**You need** Docker, or Node 20+ with MySQL 8.0.19 or newer.
+**You need** Docker, or Node 20+ with MySQL 5.7+ or MariaDB 10.2+.
 
 ```bash
 git clone <repo> && cd <repo>

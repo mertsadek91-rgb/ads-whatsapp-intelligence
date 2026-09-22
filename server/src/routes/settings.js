@@ -42,7 +42,7 @@ router.post("/currency", admin, wrap(async (req, res) => {
   const base = await baseCurrency();
   const rates = sanitizeRates(req.body?.rates, base);
   await query(
-    "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
+    "insert into ads_settings (k, v) values (?, ?) on duplicate key update v=values(v), updated_at=now()",
     [RATES_KEY, JSON.stringify(rates)]
   );
   res.json({ currencies: CURRENCIES, rates, base });
@@ -127,7 +127,7 @@ router.get("/reports", admin, wrap(async (req, res) => {
 router.post("/reports", admin, wrap(async (req, res) => {
   const enabled = req.body?.email_enabled ? "1" : "0";
   await query(
-    "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
+    "insert into ads_settings (k, v) values (?, ?) on duplicate key update v=values(v), updated_at=now()",
     [EMAIL_ENABLED_KEY, enabled]);
   res.json({ email_enabled: enabled === "1", smtp_configured: smtpConfigured() });
 }));
@@ -167,7 +167,7 @@ router.get("/work-hours", wrap(async (req, res) => res.json(await readWorkHours(
 router.post("/work-hours", admin, wrap(async (req, res) => {
   const wh = sanitizeWorkHours(req.body);
   await query(
-    "insert into ads_settings (k, v) values (?, ?) as new on duplicate key update v=new.v, updated_at=now()",
+    "insert into ads_settings (k, v) values (?, ?) on duplicate key update v=values(v), updated_at=now()",
     [WORK_HOURS_KEY, JSON.stringify(wh)]);
   res.json(wh);
 }));

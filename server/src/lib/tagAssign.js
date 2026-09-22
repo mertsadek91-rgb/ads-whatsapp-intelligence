@@ -194,9 +194,9 @@ export async function saveTags(result, { version = TAG_VERSION, model = null } =
   for (const r of rows) {
     await query(
       `insert into ads_conversation_tag (wa_id, tag, category, source, confidence, evidence, tag_version)
-       values (?,?,?,?,?,?,?) as new
-       on duplicate key update category=new.category, source=new.source,
-         confidence=new.confidence, evidence=new.evidence, tag_version=new.tag_version,
+       values (?,?,?,?,?,?,?)
+       on duplicate key update category=values(category), source=values(source),
+         confidence=values(confidence), evidence=values(evidence), tag_version=values(tag_version),
          updated_at=now()`,
       [result.wa_id, r.tag, r.category, r.source, r.confidence ?? null, r.evidence || null, version]);
   }
@@ -213,9 +213,9 @@ export async function saveTags(result, { version = TAG_VERSION, model = null } =
 
   await query(
     `insert into ads_conversation_tag_run (wa_id, tag_version, tags_found, model)
-     values (?,?,?,?) as new
-     on duplicate key update tag_version=new.tag_version, tags_found=new.tags_found,
-       model=new.model, tagged_at=now()`,
+     values (?,?,?,?)
+     on duplicate key update tag_version=values(tag_version), tags_found=values(tags_found),
+       model=values(model), tagged_at=now()`,
     [result.wa_id, version, rows.length, model]);
 
   return rows.length;

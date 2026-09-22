@@ -44,8 +44,7 @@ async function recipients() {
 async function recordRun(summary) {
   const today = new Date().toISOString().slice(0, 10);
   await query(
-    `INSERT INTO ads_report_runs (run_date, summary) VALUES (?, ?)
-     AS new ON DUPLICATE KEY UPDATE built_at=now(), summary=new.summary`,
+    `INSERT INTO ads_report_runs (run_date, summary) VALUES (?, ?) ON DUPLICATE KEY UPDATE built_at=now(), summary=values(summary)`,
     [today, "nightly: " + JSON.stringify(summary).slice(0, 950)]).catch(() => {});
 }
 

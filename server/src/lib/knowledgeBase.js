@@ -32,13 +32,12 @@ async function upsertPair({ question, answer, category, lang, source, status }) 
   if (!question.trim() || !answer.trim()) return { skipped: true };
   await query(
     `insert into ads_kb_qa (q_hash, question, answer, category, lang, source, status, times_seen)
-     values (?,?,?,?,?,?,?,1)
-     as new on duplicate key update
+     values (?,?,?,?,?,?,?,1) on duplicate key update
        times_seen = ads_kb_qa.times_seen + 1,
        -- refresh AI-authored drafts on re-generation; never clobber a human's
        -- edits or an approved answer.
-       answer = case when ads_kb_qa.source='ai' and ads_kb_qa.status='draft' then new.answer else ads_kb_qa.answer end,
-       category = case when ads_kb_qa.source='ai' and ads_kb_qa.status='draft' then new.category else ads_kb_qa.category end,
+       answer = case when ads_kb_qa.source='ai' and ads_kb_qa.status='draft' then values(answer) else ads_kb_qa.answer end,
+       category = case when ads_kb_qa.source='ai' and ads_kb_qa.status='draft' then values(category) else ads_kb_qa.category end,
        updated_at = now()`,
     [h, question.trim(), answer.trim(), clampCat(category), lang === "en" ? "en" : "ar", source || "ai", status || "draft"]);
   return { hash: h };

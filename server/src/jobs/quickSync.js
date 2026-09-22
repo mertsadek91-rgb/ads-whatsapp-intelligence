@@ -29,8 +29,7 @@ export async function runQuickSync({ now = new Date() } = {}) {
     catch (e) { summary.stages.followup_snapshot = "ERR:" + e.message; }
 
     await query(
-      `insert into ads_report_runs (run_date, summary) values (?, ?)
-       as new on duplicate key update built_at=now(), summary=new.summary`,
+      `insert into ads_report_runs (run_date, summary) values (?, ?) on duplicate key update built_at=now(), summary=values(summary)`,
       [new Date().toISOString().slice(0, 10), "quicksync: " + JSON.stringify(summary).slice(0, 950)]
     ).catch(() => {});
     return summary;

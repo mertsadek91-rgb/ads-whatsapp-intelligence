@@ -367,12 +367,22 @@ export default function SetupApp() {
             </li>
           ))}
         </ol>
-        <button className="btn ghost sm" onClick={() => setLang(lang === "ar" ? "en" : "ar")}>
+        <button type="button" className="btn ghost sm" onClick={() => setLang(lang === "ar" ? "en" : "ar")}>
           {lang === "ar" ? "English" : "العربية"}
         </button>
       </aside>
 
+      {/*
+        A real form around the fields, for one reason: browsers and password
+        managers only treat a password input as a credential when it is inside
+        one. Without it Chrome logs "Password field is not contained in a form"
+        for every render, autofill misbehaves, and a manager cannot offer to
+        save the administrator password the operator is being asked to invent.
+        Submission is prevented — every control here is an explicit button — so
+        pressing Enter in a field does nothing rather than reloading the wizard.
+      */}
       <main className="setup-main">
+        <form onSubmit={(e) => e.preventDefault()}>
         <h2>{lang === "en" ? STEP_TITLES[step][1] : STEP_TITLES[step][0]}</h2>
 
         {conflict && (
@@ -380,7 +390,7 @@ export default function SetupApp() {
             <strong>{t("المعالج مفتوح من جلسة أخرى", "The installer is open in another session")}</strong>
             <p>{t(`آخر جلسة بدأت من ${conflict}. إن كانت لك — أغلقت المتصفّح أو أعدت تشغيل الخادم — فاستلم المعالج من هنا.`,
                   `The last session started from ${conflict}. If that was you — a closed browser or a restarted server — take it over here.`)}</p>
-            <button className="btn" onClick={async () => {
+            <button type="button" className="btn" onClick={async () => {
               if (await claimIfNeeded({ takeover: true })) setResult(null);
             }}>{t("هذا أنا — استلم المعالج", "That was me — take over")}</button>
           </div>
@@ -393,7 +403,7 @@ export default function SetupApp() {
                   "Copy the token printed in the server log on first start.")}</p>
             <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)}
               placeholder="install token" />
-            <button className="btn" onClick={() => { setInstallToken(tokenInput); setTokenPrompt(false); }}>
+            <button type="button" className="btn" onClick={() => { setInstallToken(tokenInput); setTokenPrompt(false); }}>
               {t("متابعة", "Continue")}
             </button>
           </div>
@@ -671,9 +681,9 @@ export default function SetupApp() {
 
         {step === "finish" ? (
           <div className="setup-actions">
-            <button className="btn ghost" disabled={busy}
+            <button type="button" className="btn ghost" disabled={busy}
               onClick={() => setStep(ORDER[ORDER.indexOf(step) - 1])}>{t("رجوع", "Back")}</button>
-            <button className="btn primary" onClick={finish}
+            <button type="button" className="btn primary" onClick={finish}
               disabled={busy || !form.finish.email || !form.finish.password
                 || (form.finish.since === "date" && !form.finish.sinceDate)}>
               {busy ? t("جارٍ الإنهاء…", "Finishing…") : t("إنهاء التنصيب", "Finish installation")}
@@ -685,6 +695,7 @@ export default function SetupApp() {
             onSkip={(status?.skippable || []).includes(step) ? skipStep : null}
             onBack={ORDER.indexOf(step) > 0 ? () => { setStep(ORDER[ORDER.indexOf(step) - 1]); setResult(null); } : null} />
         )}
+        </form>
       </main>
     </div>
   );

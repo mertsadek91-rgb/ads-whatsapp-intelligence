@@ -1,6 +1,6 @@
 // MySQL access layer (port of the Python mdb.py). Tables live in the connection
 // DB prefixed `ads_`. Provides query() and a batched upsert() using
-// INSERT ... AS new ON DUPLICATE KEY UPDATE.
+// INSERT ... ON DUPLICATE KEY UPDATE.
 import mysql from "mysql2/promise";
 import config from "./config.js";
 import { sslOption } from "./lib/mysqlSsl.js";
@@ -130,19 +130,42 @@ function param(v) {
  *                   where COALESCE would not help because the value is not null,
  *                   just worse.
  */
+// NUL, built rather than escaped. It cannot occur inside a key value, which
+// is the whole requirement.
+const KEY_SEP = String.fromCharCode(0);
+
 export async function upsert(table, cols, rows, conflictCols, { coalesceCols = [], insertOnlyCols = [], batch = 500 } = {}) {
   if (!rows.length) return 0;
   // dedup within the call by conflict key (keep last)
   const keyIdx = conflictCols.map((c) => cols.indexOf(c));
   const seen = new Map();
-  for (const r of rows) seen.set(keyIdx.map((i) => r[i]).join(""), r);
+  // NUL-separated: joining with "" makes ("ab","c") and ("a","bc") the same
+  // key, so one of the two rows is silently dropped before the INSERT.
+  for (const r of rows) seen.set(keyIdx.map((i) => r[i]).join(KEY_SEP), r);
   const deduped = [...seen.values()];
 
   const insertOnly = new Set(insertOnlyCols);
   const updateCols = cols.filter((c) => !conflictCols.includes(c) && !insertOnly.has(c));
   const coalesce = new Set(coalesceCols);
+  // VALUES(col), not the row alias.
+  //
+  // The row-alias form MySQL added in 8.0.19 is implemented in no MariaDB
+  // release — and MariaDB is what most shared hosting provides. It made this
+  // product uninstallable there in the worst possible way: the schema applied,
+  // reads worked, login worked (the session library uses the older syntax), and
+  // every single save failed.
+  //
+  // VALUES(col) means the same thing and both accept it. MySQL deprecated it in
+  // 8.0.20 in favour of the alias, so there it still works and may log a
+  // deprecation note. If it is ever removed, this function and the statements
+  // pinned by tests/portableSql.test.js are the whole of the change.
+  //
+  // That test greps the source, which is why this comment does not spell the
+  // old syntax out.
   const setClause = updateCols
-    .map((c) => (coalesce.has(c) ? `\`${c}\`=COALESCE(new.\`${c}\`, ${table}.\`${c}\`)` : `\`${c}\`=new.\`${c}\``))
+    .map((c) => (coalesce.has(c)
+      ? `\`${c}\`=COALESCE(VALUES(\`${c}\`), ${table}.\`${c}\`)`
+      : `\`${c}\`=VALUES(\`${c}\`)`))
     .join(", ");
   const collist = cols.map((c) => `\`${c}\``).join(", ");
   const ph = "(" + cols.map(() => "?").join(",") + ")";
@@ -153,7 +176,7 @@ export async function upsert(table, cols, rows, conflictCols, { coalesceCols = [
     const chunk = deduped.slice(i, i + batch);
     const values = chunk.map(() => ph).join(",\n");
     const flat = chunk.flatMap((r) => r.map(param));
-    const sql = `INSERT INTO ${table} (${collist}) VALUES\n${values}\nAS new ON DUPLICATE KEY UPDATE ${setClause}`;
+    const sql = `INSERT INTO ${table} (${collist}) VALUES\n${values}\nON DUPLICATE KEY UPDATE ${setClause}`;
     await conn.query(sql, flat);
     total += chunk.length;
   }

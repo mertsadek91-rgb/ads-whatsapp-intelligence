@@ -6,42 +6,6 @@
 import { describe, it, expect, vi } from "vitest";
 import express from "express";
 import request from "supertest";
-import { versionAtLeast, isMariaDb, MIN_MYSQL } from "../src/setup/validators/db.js";
-import { HINTS } from "../src/setup/errorMap.js";
-
-describe("the database gate can tell MariaDB from an old MySQL", () => {
-  it("refuses MariaDB however new it is", () => {
-    // Compared as numbers, "10.6.16-MariaDB" is 10 against a minimum of 8, so
-    // it sailed through a check written for MySQL. Then every write failed:
-    // the whole data layer upserts with INSERT ... AS new, which is MySQL
-    // 8.0.19+ only and no MariaDB release implements.
-    for (const v of ["10.6.16-MariaDB", "11.4.2-MariaDB-log", "5.5.68-MariaDB"]) {
-      expect(isMariaDb(v), v).toBe(true);
-      expect(versionAtLeast(v), v).toBe(false);
-    }
-  });
-
-  it("still accepts the MySQL versions that do support the syntax", () => {
-    expect(versionAtLeast("8.0.19")).toBe(true);
-    expect(versionAtLeast("8.4.0")).toBe(true);
-    expect(versionAtLeast("9.0.1")).toBe(true);
-    expect(MIN_MYSQL).toEqual([8, 0, 19]);
-  });
-
-  it("still refuses a genuinely old MySQL", () => {
-    expect(versionAtLeast("8.0.18")).toBe(false);
-    expect(versionAtLeast("5.7.44")).toBe(false);
-    expect(isMariaDb("5.7.44")).toBe(false);
-  });
-
-  it("explains the two refusals differently, because the remedies differ", () => {
-    // "Too old" sends someone looking for an upgrade. For MariaDB 11 there is
-    // no upgrade to find — it is a different product.
-    expect(HINTS.DB_IS_MARIADB.ar).toMatch(/MariaDB/);
-    expect(HINTS.DB_IS_MARIADB.en).toMatch(/MariaDB, not MySQL/);
-    expect(HINTS.DB_VERSION_TOO_OLD.en).not.toMatch(/MariaDB/);
-  });
-});
 
 describe("a route that throws answers, rather than taking the process with it", () => {
   // Express 4 does not catch a rejected promise from a handler. Without a

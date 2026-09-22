@@ -236,13 +236,12 @@ export async function analyze(waId, thread = null) {
     `insert into ads_conversation_analysis
        (wa_id, conv_score, lead_intent, lead_status, summary, customer_details, agent_name,
         agent_score, agent_eval, follow_up_min, wrong_persuasion, flags, message_count, model, raw, thread_snapshot)
-     values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-     as new on duplicate key update
-       conv_score=new.conv_score, lead_intent=new.lead_intent, lead_status=new.lead_status,
-       summary=new.summary, customer_details=new.customer_details, agent_name=new.agent_name,
-       agent_score=new.agent_score, agent_eval=new.agent_eval, follow_up_min=new.follow_up_min,
-       wrong_persuasion=new.wrong_persuasion, flags=new.flags, message_count=new.message_count,
-       model=new.model, raw=new.raw, thread_snapshot=new.thread_snapshot, analyzed_at=now()`,
+     values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) on duplicate key update
+       conv_score=values(conv_score), lead_intent=values(lead_intent), lead_status=values(lead_status),
+       summary=values(summary), customer_details=values(customer_details), agent_name=values(agent_name),
+       agent_score=values(agent_score), agent_eval=values(agent_eval), follow_up_min=values(follow_up_min),
+       wrong_persuasion=values(wrong_persuasion), flags=values(flags), message_count=values(message_count),
+       model=values(model), raw=values(raw), thread_snapshot=values(thread_snapshot), analyzed_at=now()`,
     [waId, row.conv_score, row.lead_intent, row.lead_status, row.summary,
      JSON.stringify(row.customer_details), row.agent_name, row.agent_score,
      JSON.stringify(row.agent_eval), row.follow_up_min, row.wrong_persuasion,
@@ -295,19 +294,18 @@ export async function persistEvaluation(waId, raw, thread = []) {
         customer_intent_score, qualification_score, engagement_score, customer_risk_flags,
         next_step_reached, next_step_type, completed_correctly, follow_up_required,
         confidence, requires_human_review, warnings)
-     values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-     as new on duplicate key update
-       model=new.model, prompt_version=new.prompt_version,
-       persuasion_score=new.persuasion_score, compliance_score=new.compliance_score,
-       objection_score=new.objection_score, continuity_score=new.continuity_score,
-       professionalism_score=new.professionalism_score, next_step_score=new.next_step_score,
-       classification_score=new.classification_score,
-       customer_intent_score=new.customer_intent_score, qualification_score=new.qualification_score,
-       engagement_score=new.engagement_score, customer_risk_flags=new.customer_risk_flags,
-       next_step_reached=new.next_step_reached, next_step_type=new.next_step_type,
-       completed_correctly=new.completed_correctly, follow_up_required=new.follow_up_required,
-       confidence=new.confidence, requires_human_review=new.requires_human_review,
-       warnings=new.warnings, analyzed_at=now()`,
+     values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) on duplicate key update
+       model=values(model), prompt_version=values(prompt_version),
+       persuasion_score=values(persuasion_score), compliance_score=values(compliance_score),
+       objection_score=values(objection_score), continuity_score=values(continuity_score),
+       professionalism_score=values(professionalism_score), next_step_score=values(next_step_score),
+       classification_score=values(classification_score),
+       customer_intent_score=values(customer_intent_score), qualification_score=values(qualification_score),
+       engagement_score=values(engagement_score), customer_risk_flags=values(customer_risk_flags),
+       next_step_reached=values(next_step_reached), next_step_type=values(next_step_type),
+       completed_correctly=values(completed_correctly), follow_up_required=values(follow_up_required),
+       confidence=values(confidence), requires_human_review=values(requires_human_review),
+       warnings=values(warnings), analyzed_at=now()`,
     [waId, evaluation.policy_version, evaluation.model, evaluation.prompt_version,
      evaluation.persuasion_score, evaluation.compliance_score, evaluation.objection_score,
      evaluation.continuity_score, evaluation.professionalism_score, evaluation.next_step_score,
@@ -323,11 +321,10 @@ export async function persistEvaluation(waId, raw, thread = []) {
       `insert into ads_conversation_issue
          (wa_id, policy_version, type, severity, confidence, evidence, evidence_hash,
           employee_message_id, context_explanation, recommended_alternative)
-       values (?,?,?,?,?,?,?,?,?,?)
-       as new on duplicate key update
-         severity=new.severity, confidence=new.confidence,
-         context_explanation=new.context_explanation,
-         recommended_alternative=new.recommended_alternative`,
+       values (?,?,?,?,?,?,?,?,?,?) on duplicate key update
+         severity=values(severity), confidence=values(confidence),
+         context_explanation=values(context_explanation),
+         recommended_alternative=values(recommended_alternative)`,
       [it.wa_id, it.policy_version, it.type, it.severity, it.confidence, it.evidence,
        it.evidence_hash, it.employee_message_id, it.context_explanation, it.recommended_alternative]
     );

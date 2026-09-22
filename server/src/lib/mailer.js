@@ -76,8 +76,7 @@ export async function sendOnce({ kind, to, periodKey, cc, subject, text, html, a
 
 async function logEmail(kind, recipient, periodKey, status, error) {
   await query(
-    `insert into ads_email_log (kind, recipient, period_key, status, error) values (?,?,?,?,?)
-     as new on duplicate key update status=new.status, error=new.error, sent_at=now()`,
+    `insert into ads_email_log (kind, recipient, period_key, status, error) values (?,?,?,?,?) on duplicate key update status=values(status), error=values(error), sent_at=now()`,
     [kind, recipient, periodKey, status, error]);
 }
 

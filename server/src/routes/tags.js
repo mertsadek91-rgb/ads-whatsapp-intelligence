@@ -138,9 +138,9 @@ router.post("/customer/:waId/tag", async (req, res) => {
   try {
     await query(
       `insert into ads_conversation_tag (wa_id, tag, category, source, evidence, review_status, reviewed_by, reviewed_at)
-       values (?,?,?,'manual',?,'confirmed',?,now()) as new
-       on duplicate key update source='manual', evidence=new.evidence,
-         review_status='confirmed', reviewed_by=new.reviewed_by, reviewed_at=now()`,
+       values (?,?,?,'manual',?,'confirmed',?,now())
+       on duplicate key update source='manual', evidence=values(evidence),
+         review_status='confirmed', reviewed_by=values(reviewed_by), reviewed_at=now()`,
       [req.params.waId, tag, meta.category, String(req.body?.note || "").slice(0, 500) || null, who]);
     res.json(await customerTags(req.params.waId, { lang: langOf(req) }));
   } catch (e) { res.status(500).json({ error: e.message }); }

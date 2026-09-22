@@ -57,8 +57,7 @@ export async function runDaily({ hours = 24 } = {}) {
   } catch (e) { console.error("[retention] failed:", e.message); }
   const today = new Date().toISOString().slice(0, 10);
   await query(
-    `INSERT INTO ads_report_runs (run_date, summary) VALUES (?, ?)
-     AS new ON DUPLICATE KEY UPDATE built_at=now(), summary=new.summary`,
+    `INSERT INTO ads_report_runs (run_date, summary) VALUES (?, ?) ON DUPLICATE KEY UPDATE built_at=now(), summary=values(summary)`,
     [today, `daily: wati +${wati.kept}, meta ${meta.skipped ? "skipped" : "ok"}, synced ${auto.synced}, analyzed ${auto.analyzed}`]
   );
   console.log("=== runDaily done ===", auto);
