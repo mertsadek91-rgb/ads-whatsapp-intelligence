@@ -6,14 +6,15 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "build": "node scripts/build-web.mjs",
+    "build:web": "node scripts/build-web.mjs",
     "dev": "node --watch src/server.js",
     "backfill": "node src/jobs/backfill.js",
     "daily": "node src/jobs/runDaily.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.js",
-    "start:trusted": "node --use-system-ca src/server.js",
-    "build:web": "node scripts/build-web.mjs"
+    "start:trusted": "node --use-system-ca src/server.js"
   },
   "dependencies": {
     "@fontsource/cairo": "^5.2.7",
