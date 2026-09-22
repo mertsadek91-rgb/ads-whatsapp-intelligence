@@ -18,7 +18,10 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 COPY server/package*.json ./server/
 RUN cd server && npm ci --omit=dev --no-audit --no-fund
 COPY server/ ./server/
-COPY --from=web /web/dist ./web/dist
+# Vite emits into ../server/public relative to the web package, so in the build
+# stage the output lands at /server/public — inside the image it belongs under
+# the server directory, which is where the app looks for it.
+COPY --from=web /server/public ./server/public
 ENV NODE_ENV=production
 EXPOSE 3000
 # BUG-044 fix: no HEALTHCHECK existed, so Docker/orchestrators had no signal

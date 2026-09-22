@@ -41,9 +41,11 @@ for (const args of [[install, "--no-audit", "--no-fund"], ["run", "build"]]) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
-const dist = path.join(web, "dist", "index.html");
-if (!existsSync(dist)) {
-  console.error(`[build:web] the build finished but produced no ${dist}`);
+// Vite emits into ../server/public (see web/vite.config.js), so the output
+// lands inside the server package rather than beside the web sources.
+const index = path.resolve(here, "..", "public", "index.html");
+if (!existsSync(index)) {
+  console.error(`[build:web] the build finished but produced no ${index}`);
   process.exit(1);
 }
-console.log(`[build:web] done — ${dist}`);
+console.log(`[build:web] done — ${index}`);

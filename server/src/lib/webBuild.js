@@ -1,15 +1,14 @@
 // Make sure there is a front end to serve, even when the deployment lost it.
 //
-// Hostinger — and every host with a similar release model — builds in one
-// directory and RUNS from another:
+// The front end is built into server/public — inside this package — precisely
+// so that "the app" is one directory. It used to live in web/dist, which the
+// server reached with "../../web/dist", and that broke as soon as a host
+// deployed only the configured root directory: the release held server/ alone,
+// the built files were two levels up in a directory that did not exist there,
+// and every page 503'd while the API answered perfectly.
 //
-//   build:  hbuilds/source/repository/web/dist
-//   run:    hbuilds/versions/<uuid>/web/dist
-//
-// The release copy is git-based, and web/dist is gitignored, so the thing the
-// build step produced never reaches the directory the app runs from. The build
-// log says "done", the API works, and every page is a 503. Nothing in either
-// place is wrong; they are simply different directories.
+// This still rebuilds when the directory is empty, because a host can also
+// build in one place and run from another.
 //
 // Rather than committing build output to git to work around one host's model,
 // the app builds what it is missing, once, in the background. Boot is not
@@ -22,7 +21,7 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.resolve(here, "../..");
-export const distDir = path.resolve(serverRoot, "../web/dist");
+export const distDir = path.resolve(serverRoot, "public");
 const indexFile = path.join(distDir, "index.html");
 const builder = path.join(serverRoot, "scripts", "build-web.mjs");
 

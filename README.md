@@ -91,7 +91,7 @@ docker compose logs -f app        # رمز التنصيب يُطبع هنا
 
 | الحقل | القيمة | لماذا |
 |---|---|---|
-| Root directory | `server` | ليُنصَّب اعتماديات الخادم فعلاً |
+| Root directory | `server` | تُنصَّب اعتماديات الخادم، والواجهة تُبنى داخل `server/public` فيكون المنشور مجلّداً واحداً مكتفياً بذاته |
 | Entry file | `src/server.js` | **بدونه لا يُشغَّل شيء**، ويعرض الدومين صفحة المزوّد الافتراضية |
 | Build command | `npm run build` | يبني الواجهة؛ بدونه تعمل الـAPI بلا أي صفحة. هذه الاستضافات تعرض الأمر من قائمة ثابتة، فالمشروع يوفّره بهذا الاسم |
 | Output directory | (اتركه فارغاً) | الخادم نفسه يخدم الملفات الساكنة؛ ملؤه قد يجعل المزوّد يخدم ملفات بدل تشغيل Node |
@@ -270,7 +270,7 @@ inside it. This project is two packages, so:
 
 | Field | Value | Why |
 |---|---|---|
-| Root directory | `server` | so the API's own dependencies actually install |
+| Root directory | `server` | its dependencies install, and the front end builds into `server/public`, so what gets deployed is one self-contained directory |
 | Entry file | `src/server.js` | **without it nothing starts**, and the domain falls through to the host's default page |
 | Build command | `npm run build` | builds the front end; without it the API runs and no page loads. These hosts offer the command from a fixed dropdown, so the project provides that name |
 | Output directory | (leave empty) | the server serves the static files itself; filling this in can make the host serve files instead of running Node |

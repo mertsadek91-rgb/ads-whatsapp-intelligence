@@ -12,6 +12,9 @@ server/data/
 # ---- Dependencies / build output ----
 node_modules/
 dist/
+# The built front end. Vite emits it here (see web/vite.config.js) so the server
+# package is self-contained and deployable on its own.
+server/public/
 coverage/
 
 # ---- Logs & scratch ----
